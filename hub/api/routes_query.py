@@ -9,6 +9,7 @@ from hub.db import schema
 from hub.models import api_models
 from hub.retrieval import search, translator
 from hub.retrieval import formatter
+from hub.retrieval import outcomes
 from hub.retrieval.pipeline import QueryPipeline
 
 logger = logging.getLogger(__name__)
@@ -41,6 +42,10 @@ def _retrieval_score_for_log(result: dict) -> float:
 @router.post("/query", response_model=api_models.QueryResponse)
 async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get_db)):
     start_time = time.time()
+    # RK-55: failure/fallback outcome logging. Declared at function scope so the
+    # outer exception handler can always write a (partial) attributable log row.
+    log_fallback_reason = None
+    log_failed_stage = None
     try:
         user_language = query.language or "en"
         raw_text = (query.transcript_english or query.transcript_original).strip()
@@ -107,6 +112,8 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
             logger.info(f"[Query] Retrieval took {(time.time() - t1) * 1000:.0f}ms")
         except Exception as e:
             logger.error(f"[Query] Retrieval error: {e}")
+            log_failed_stage = "retrieve"
+            log_fallback_reason = outcomes.FALLBACK_RETRIEVAL_ERROR
             result = {
                 "answer_text": "I am here to answer questions about registration, food, medical help, sleeping areas, transportation, safety, and other services in this shelter. Please ask about one of these topics or see a volunteer for more help.",
                 "answer_type": "NO_MATCH",
@@ -307,6 +314,12 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
             except Exception as e:
                 logger.error(f"[Query] Translation failed: {e}")
 
+        # RK-55: if no error reason was set upstream, classify the (clean or
+        # no-match) outcome from the result so every non-clarification row is
+        # attributable. A clean DIRECT_MATCH classifies to None.
+        if log_fallback_reason is None:
+            log_fallback_reason = outcomes.classify_fallback_reason(result)
+
         query_log_id = None
         try:
             import time as _time
@@ -361,6 +374,8 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
                 bias_applied_count=result.get("bias_applied_count"),
                 bias_top1_changed=result.get("bias_top1_changed"),
                 bias_detail=json.dumps(result.get("bias_detail") or [], ensure_ascii=False),
+                fallback_reason=log_fallback_reason,
+                failed_stage=log_failed_stage,
                 created_at=int(_time.time()),
             )
             db.add(log_entry)
@@ -470,6 +485,31 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
 
     except Exception:
         logger.exception("Query failed")
+        # RK-55: persist a partial, attributable log row even on hard failure so
+        # the outcome is never silently dropped. Best-effort; never masks the
+        # original error or the safe response.
+        try:
+            import time as _time
+            db.rollback()
+            partial = schema.QueryLog(
+                kiosk_id=getattr(query, "kiosk_id", "") or "",
+                session_id=getattr(query, "session_id", None),
+                transcript_original=getattr(query, "transcript_original", None),
+                raw_transcript=getattr(query, "transcript_original", None),
+                language=getattr(query, "language", None) or "en",
+                kb_version=getattr(query, "kb_version", 1),
+                answer_type="NO_MATCH",
+                retrieval_score=0.0,
+                latency_ms=round((time.time() - start_time) * 1000, 2),
+                fallback_reason=log_fallback_reason or outcomes.FALLBACK_RETRIEVAL_ERROR,
+                failed_stage=log_failed_stage or "unknown",
+                created_at=int(_time.time()),
+            )
+            db.add(partial)
+            db.commit()
+        except Exception:
+            logger.exception("[Query] Partial failure-log write failed")
+            db.rollback()
         return api_models.QueryResponse(
             answer_text_en="I am here to answer questions about registration, food, medical help, sleeping areas, transportation, safety, and other services in this shelter. Please ask about one of these topics or see a volunteer for more help.",
             answer_text_localized=None,

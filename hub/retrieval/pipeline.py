@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session
 from hub.retrieval.normalizer import normalize_query
 from hub.retrieval import search
 from hub.retrieval import rewriter as query_rewriter
+from hub.retrieval import outcomes
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +73,12 @@ class PipelineResult:
     # Clarification gate outputs — populated regardless of whether clarification fired.
     clarification_triggered: bool = False
     clarification_trigger_reason: str = "not_triggered"
+
+    # Failure / fallback outcome logging (RK-55). Both null on a clean answer or
+    # a clarification pause. fallback_reason uses hub.retrieval.outcomes constants;
+    # failed_stage names the stage that raised (a STAGE_* constant) when one did.
+    fallback_reason: Optional[str] = None
+    failed_stage: Optional[str] = None
 
 
 class QueryPipeline:
@@ -134,6 +141,8 @@ class QueryPipeline:
         except Exception as e:
             logger.error(f"[Pipeline] Retrieval error: {e}")
             retrieve_result = _fallback_no_match(intent, intent_confidence)
+            result.failed_stage = STAGE_RETRIEVE
+            result.fallback_reason = outcomes.FALLBACK_RETRIEVAL_ERROR
         result.retrieve_result = retrieve_result
         logger.info(
             f"[Pipeline] {STAGE_RETRIEVE}: answer_type={retrieve_result.get('answer_type')} "
@@ -199,6 +208,13 @@ class QueryPipeline:
             except Exception as e:
                 logger.warning(f"[Pipeline] Rewrite retry failed: {e}")
                 # Keep the original retrieve_result on failure.
+                result.failed_stage = STAGE_RETRIEVE_RETRY
+                result.fallback_reason = outcomes.FALLBACK_REWRITE_ERROR
+
+        # Classify the non-error outcome (no_results / low_confidence / clean) for
+        # logging. An error reason set above takes precedence and is preserved.
+        if result.fallback_reason is None:
+            result.fallback_reason = outcomes.classify_fallback_reason(result.retrieve_result)
 
         return result
 
