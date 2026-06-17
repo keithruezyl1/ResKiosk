@@ -105,6 +105,8 @@ def migrate():
             "unsupported_span_count": "ALTER TABLE query_logs ADD COLUMN unsupported_span_count INTEGER",
             "grounding_method": "ALTER TABLE query_logs ADD COLUMN grounding_method TEXT",
             "grounding_detail": "ALTER TABLE query_logs ADD COLUMN grounding_detail TEXT",
+            # Phase 6 / Slice 6B — response cache outcome
+            "cache_status": "ALTER TABLE query_logs ADD COLUMN cache_status TEXT",
         }
         for col, sql in ql_migrations.items():
             if col not in cols:

@@ -86,6 +86,8 @@ class QueryLog(Base):
     unsupported_span_count = Column(Integer, nullable=True)
     grounding_method = Column(String, nullable=True)     # rule_v1 | llm_judge_offline | human
     grounding_detail = Column(Text, nullable=True)       # JSON: unsupported spans / reviewer note
+    # Phase 6 / Slice 6B — response cache outcome
+    cache_status = Column(String, nullable=True)         # hit | miss | bypass
     created_at = Column(Integer)  # Unix timestamp
 
 
