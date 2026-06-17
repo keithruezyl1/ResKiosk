@@ -3,7 +3,26 @@ title: Execution — Phase 5 — Observability & trust completion
 parent: Execution Plan
 ---
 
-# Phase 5 — Observability & trust completion (Goal 10) — ◐ in progress
+# Phase 5 — Observability & trust completion (Goal 10) — ✅ COMPLETE
+
+> **STATUS: COMPLETE** (D9 resolved). Delivered: RK-55 (failure logging, earlier);
+> S6A.2 per-stage latency (`pipeline.stage_latency` → `retrieve_ms`/`rewrite_ms`/
+> `clarification_ms`); S6A.3 `final_evidence` stability anchor; S6A.5 rule_v1
+> grounding proxy (`hub/eval/grounding.py` + grounding columns); S6A.4/S6A.7
+> metrics export + KPI report by KB version (`hub/eval/kpi_report.py`, structured-only);
+> S6A.6 fixed eval set (`hub/eval/mvp_eval.py` + `data/mvp_eval_set.json`); S6A.9
+> readable trace (`logger_stream.format_query_trace`); plus D9c retention purge
+> (`hub/db/retention.py`, 30-day default). 141-test suite green.
+>
+> **Honest scope notes:** (1) Per D9b, grounding is an **eval-time / human-review**
+> metric, not auto-populated on production rows — `query_logs` doesn't store the
+> generated answer text (privacy + LLM non-determinism), so `grounded_ratio` is
+> filled by the eval set (recorded answers) or manual review, and the KPI report
+> reads it where present. (2) No console review UI / separate grounding_review
+> table was built — the grounding columns + `grounding_method="human"` support
+> review without new tables (deferred if a UI is wanted). (3) `retrieve_ms` is the
+> route-measured retrieval of the answer; `rewrite_ms`/`clarification_ms` come from
+> pipeline stage timing.
 
 ## Objective and scope
 
