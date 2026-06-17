@@ -1188,3 +1188,109 @@ def retrieve(
         "follow_up_intent": None,
         **retrieval_metadata,
     }
+
+
+# ─── Phase 4 (Slice 5) — multi-path compound retrieval ───────────────────────
+
+
+def build_path_queries(
+    normalized_query: str,
+    primary_intent: Optional[str],
+    secondary_intent: Optional[str],
+) -> list[tuple[str, int, str]]:
+    """S5.2: build one intent-scoped retrieval path per intent.
+
+    Each path reuses the same normalized base query, biased toward a single
+    intent via that intent's enrichment keywords (deterministic). Returns a list
+    of ``(intent, priority, path_query)`` for the distinct intents present, in
+    priority-desc, then intent-name order (stable).
+    """
+    seen = set()
+    paths: list[tuple[str, int, str]] = []
+    for intent in (primary_intent, secondary_intent):
+        if not intent or intent in seen:
+            continue
+        seen.add(intent)
+        enrich = INTENT_ENRICHMENT.get(intent)
+        path_query = f"{normalized_query} {enrich}".strip() if enrich else normalized_query
+        paths.append((intent, _intent_priority(intent), path_query))
+    # Deterministic order: highest priority first, then intent name.
+    paths.sort(key=lambda p: (-p[1], p[0]))
+    return paths
+
+
+def _candidates_from_result(result: Optional[dict]) -> tuple:
+    """Extract ranked ``(article_id, score)`` from a retrieve() result dict,
+    preferring fused ranking, then vector ranking. Empty on miss/None."""
+    if not result:
+        return ()
+    ids = result.get("fusion_top_k_ids") or result.get("vector_top_k_ids") or []
+    scores = result.get("fusion_top_k_scores") or result.get("vector_top_k_scores") or []
+    out = []
+    for i, aid in enumerate(ids):
+        try:
+            score = float(scores[i]) if i < len(scores) and scores[i] is not None else 0.0
+            out.append((int(aid), score))
+        except (TypeError, ValueError):
+            continue
+    return tuple(out)
+
+
+def retrieve_multipath(
+    db: Session,
+    normalized_query: str,
+    primary_intent: Optional[str],
+    secondary_intent: Optional[str],
+    *,
+    is_retry: bool = False,
+    exclude_source_ids: Optional[List[int]] = None,
+    query_language: str = "en",
+) -> dict:
+    """S5.3: run retrieval independently per intent path, then merge (D8).
+
+    Reuses the full single-path ``retrieve()`` per path (so each path inherits
+    hybrid retrieval, filtering, and validation gating), captures per-path
+    candidates with scores/ranks, and merges via
+    ``multipath_merge.merge_paths`` (priority-bucket-then-RRF). A zero-result or
+    failing path never fails the whole request.
+
+    Returns a dict with: ``paths`` (the built path specs), ``per_path`` (the raw
+    per-path result dicts), ``path_inputs`` (what was fed to the merge), and
+    ``merged`` (the MultipathMergeOutput).
+    """
+    from hub.retrieval.multipath_merge import PathInput, merge_paths
+
+    paths = build_path_queries(normalized_query, primary_intent, secondary_intent)
+    per_path: dict[str, Optional[dict]] = {}
+    path_inputs: list = []
+    for intent, priority, path_query in paths:
+        try:
+            result = retrieve(
+                db,
+                path_query,
+                is_retry,
+                selected_category=None,
+                exclude_source_ids=exclude_source_ids,
+                query_language=query_language,
+            )
+        except Exception:
+            logger.exception(f"[Multipath] path intent='{intent}' retrieval failed")
+            result = None
+        per_path[intent] = result
+        candidates = _candidates_from_result(result)
+        path_inputs.append(PathInput(intent=intent, priority=priority, candidates=candidates))
+        logger.info(
+            f"[Multipath] path intent='{intent}' priority={priority} candidates={len(candidates)}"
+        )
+
+    merged = merge_paths(path_inputs)
+    logger.info(
+        f"[Multipath] merged {len(merged.results)} candidates across {len(paths)} paths; "
+        f"top={[c.article_id for c in merged.results[:5]]}"
+    )
+    return {
+        "paths": paths,
+        "per_path": per_path,
+        "path_inputs": path_inputs,
+        "merged": merged,
+    }
