@@ -179,6 +179,9 @@ class SecondaryEvidence(BaseModel):
     source_id: Optional[int] = None
     answer_text: Optional[str] = None
     confidence: Optional[float] = None
+    # Phase 7 / Slice 7A: modality-aware evidence (text default; image arrives in 7C)
+    modality: Optional[str] = "text"
+    render_ref: Optional[str] = None  # image render/asset reference, populated in 7B/7C
 
 
 class QueryResponse(BaseModel):
@@ -200,6 +203,9 @@ class QueryResponse(BaseModel):
     # Phase 4 / Slice 5 — compound multi-path outputs (additive, optional)
     secondary_evidence: Optional[SecondaryEvidence] = None
     sos_offered: bool = False
+    # Phase 7 / Slice 7A — modality of the primary answer evidence (text|image)
+    modality: Optional[str] = "text"
+    render_ref: Optional[str] = None  # image render/asset reference, populated in 7B/7C
     # Clarification pause context — populated only when answer_type == NEEDS_CLARIFICATION
     clarification_context: Optional[ClarificationContext] = None
 

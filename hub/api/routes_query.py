@@ -164,6 +164,7 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
                     follow_up_intent=cached.get("follow_up_intent"),
                     secondary_evidence=(api_models.SecondaryEvidence(**sec) if sec else None),
                     sos_offered=bool(cached.get("sos_offered")),
+                    modality=cached.get("modality") or "text",
                 )
             log_cache_status = response_cache.STATUS_MISS
 
@@ -428,6 +429,7 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
         final_evidence_json = json.dumps(
             {
                 "primary_source_id": result.get("source_id"),
+                "primary_modality": result.get("modality") or "text",
                 "secondary_source_id": (secondary_evidence_obj.source_id if secondary_evidence_obj else None),
                 "top_k_ids": result.get("fusion_top_k_ids") or result.get("vector_top_k_ids"),
             },
@@ -602,6 +604,7 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
                     "follow_up_intent": follow_up_intent,
                     "secondary_evidence": (secondary_evidence_obj.model_dump() if secondary_evidence_obj else None),
                     "sos_offered": sos_offered,
+                    "modality": result.get("modality") or "text",
                 })
             except Exception:
                 logger.exception("[Cache] store failed")
@@ -622,6 +625,8 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
             follow_up_intent=follow_up_intent,
             secondary_evidence=secondary_evidence_obj,
             sos_offered=sos_offered,
+            modality=result.get("modality") or "text",
+            render_ref=None,
         )
 
     except Exception:

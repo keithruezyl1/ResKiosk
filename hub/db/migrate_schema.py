@@ -119,21 +119,27 @@ def migrate():
                 "WHERE cloud_consent_mode IS NULL OR cloud_consent_mode = ''"
             )
 
-    # ── kb_articles ───────────────────────────────────────────────────
-    cols = _get_existing_columns(cursor, "kb_articles")
+    # ── kb_items (Phase 7: renamed from kb_articles) ──────────────────
+    cols = _get_existing_columns(cursor, "kb_items")
     if cols:
         kb_migrations = {
-            "status": "ALTER TABLE kb_articles ADD COLUMN status VARCHAR",
+            "status": "ALTER TABLE kb_items ADD COLUMN status VARCHAR",
             # Goal 7 (Story 2) filterable metadata
-            "authority": "ALTER TABLE kb_articles ADD COLUMN authority TEXT",
-            "scope": "ALTER TABLE kb_articles ADD COLUMN scope TEXT",
-            "center_id": "ALTER TABLE kb_articles ADD COLUMN center_id TEXT",
-            "hub_id": "ALTER TABLE kb_articles ADD COLUMN hub_id TEXT",
+            "authority": "ALTER TABLE kb_items ADD COLUMN authority TEXT",
+            "scope": "ALTER TABLE kb_items ADD COLUMN scope TEXT",
+            "center_id": "ALTER TABLE kb_items ADD COLUMN center_id TEXT",
+            "hub_id": "ALTER TABLE kb_items ADD COLUMN hub_id TEXT",
+            # Phase 7 / Slice 7A multimodal schema
+            "modality": "ALTER TABLE kb_items ADD COLUMN modality TEXT",
+            "image_asset_id": "ALTER TABLE kb_items ADD COLUMN image_asset_id INTEGER",
+            "parent_article_id": "ALTER TABLE kb_items ADD COLUMN parent_article_id INTEGER",
+            "segment_index": "ALTER TABLE kb_items ADD COLUMN segment_index INTEGER",
+            "metadata_json": "ALTER TABLE kb_items ADD COLUMN metadata_json TEXT",
         }
         for col, sql in kb_migrations.items():
             if col not in cols:
                 cursor.execute(sql)
-                print(f"[Migration] Added kb_articles.{col}")
+                print(f"[Migration] Added kb_items.{col}")
                 migrated += 1
 
     # -- network_config -------------------------------------------------------

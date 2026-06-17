@@ -23,11 +23,11 @@ def check_db():
     cursor = conn.cursor()
     
     try:
-        cursor.execute("SELECT COUNT(*) FROM kb_articles")
+        cursor.execute("SELECT COUNT(*) FROM kb_items")
         count = cursor.fetchone()[0]
         print(f"Total articles: {count}")
         
-        cursor.execute("SELECT id, question FROM kb_articles ORDER BY id DESC LIMIT 5")
+        cursor.execute("SELECT id, question FROM kb_items ORDER BY id DESC LIMIT 5")
         rows = cursor.fetchall()
         for row in rows:
             print(f"ID: {row[0]} | Question: {row[1]}")

@@ -221,6 +221,7 @@ class RetrievalResult:
         self.article = article_dict  # plain dict, not ORM object
         self.score = score
         self.category = article_dict.get("category")
+        self.modality = article_dict.get("modality") or "text"
         self.vector_rank = vector_rank
         self.lexical_rank = lexical_rank
         self.fusion_score = fusion_score
@@ -405,6 +406,9 @@ def _snapshot_article(art: schema.KBArticle) -> dict:
         "answer": art.answer,
         "category": art.category,
         "tags": tags_list,
+        # Phase 7 / Slice 7A: modality-aware evidence (default text; image rows arrive in 7C)
+        "modality": getattr(art, "modality", None) or "text",
+        "image_asset_id": getattr(art, "image_asset_id", None),
     }
 
 
@@ -1036,6 +1040,8 @@ def retrieve(
             "confidence": best.score,
             "confidence_raw": best_raw_score,
             "source_id": best.article["id"],
+            "modality": best.modality,
+            "image_asset_id": best.article.get("image_asset_id"),
             "categories": None,
             "ui_selection_source": ui_selection_source,
             "ui_selected_taxonomy_node_id": selected_taxonomy_node_id,
@@ -1139,6 +1145,8 @@ def retrieve(
             "confidence": best.score,
             "confidence_raw": best_raw_score,
             "source_id": best.article["id"],
+            "modality": best.modality,
+            "image_asset_id": best.article.get("image_asset_id"),
             "categories": None,
             "ui_selection_source": ui_selection_source,
             "ui_selected_taxonomy_node_id": selected_taxonomy_node_id,
@@ -1304,7 +1312,11 @@ def _fetch_article_brief(db, article_id) -> Optional[dict]:
             .first()
         )
         if art:
-            return {"question": art.question, "answer": art.answer}
+            return {
+                "question": art.question,
+                "answer": art.answer,
+                "modality": getattr(art, "modality", None) or "text",
+            }
     except Exception:
         logger.exception("[Multipath] secondary article fetch failed")
     return None
@@ -1347,6 +1359,7 @@ def build_compound_outputs(
                 "source_id": cand.article_id,
                 "answer_text": brief.get("answer"),
                 "confidence": cand.rrf_score,
+                "modality": brief.get("modality") or "text",
             }
             break
 

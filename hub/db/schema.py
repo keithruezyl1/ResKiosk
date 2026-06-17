@@ -139,9 +139,16 @@ class HubIdentity(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
-class KBArticle(Base):
-    """Main searchable Knowledge Base — all answers come from here."""
-    __tablename__ = "kb_articles"
+class KBItem(Base):
+    """Main searchable Knowledge Base — all answers come from here.
+
+    Phase 7 (Slice 7A): generalized multimodal KB item. A row is text or image
+    (modality); image rows reference their binary via image_asset_id (-> kb_assets,
+    Slice 7B). source_id throughout the system = kb_items.id (one ID space for
+    text and image evidence). Backward-compatible: existing text behavior is the
+    modality='text' default. `KBArticle` remains an alias of this class.
+    """
+    __tablename__ = "kb_items"
 
     id           = Column(Integer, primary_key=True, autoincrement=True)
     question     = Column(Text, nullable=False)
@@ -161,6 +168,17 @@ class KBArticle(Base):
     scope        = Column(String, nullable=True)  # shelter_local|general
     center_id    = Column(String, nullable=True)  # future-friendly scoping
     hub_id       = Column(String, nullable=True)  # future-friendly scoping
+    # Phase 7 / Slice 7A: multimodal schema (D12/D13)
+    modality        = Column(String, nullable=True, default="text")  # text|image
+    image_asset_id  = Column(Integer, nullable=True)   # -> kb_assets.id (Slice 7B); null for text
+    parent_article_id = Column(Integer, nullable=True) # forward-compat segmentation (NOT enabled this increment)
+    segment_index   = Column(Integer, nullable=True)   # forward-compat segmentation (NOT enabled)
+    metadata_json   = Column(Text, nullable=True)      # open-ended, non-filtered extras (mime/dims/captions later)
+
+
+# Backward-compatible alias: existing code referencing KBArticle keeps working;
+# the underlying table is now kb_items. New multimodal code should use KBItem.
+KBArticle = KBItem
 
 
 class EvacInfo(Base):
@@ -394,7 +412,7 @@ class KBItemTaxonomy(Base):
     """Assignment of a KB article to one or more taxonomy nodes."""
     __tablename__ = "kb_item_taxonomy"
 
-    kb_item_id = Column(Integer, ForeignKey("kb_articles.id"), primary_key=True)
+    kb_item_id = Column(Integer, ForeignKey("kb_items.id"), primary_key=True)
     taxonomy_node_id = Column(String, ForeignKey("taxonomy_nodes.id"), primary_key=True)
     source = Column(Text, nullable=True)  # manual | import | legacy_category | auto
     confidence = Column(Float, nullable=True)
