@@ -3,6 +3,42 @@ import asyncio
 import sys
 from collections import deque
 
+# Phase 5 / Slice 6A Story S6A.9 — readable operational query trace.
+_TRACE_MAX_FIELD = 120
+
+
+def format_query_trace(
+    stage_log,
+    intent=None,
+    intent_confidence=None,
+    answer_type=None,
+    source_id=None,
+    fallback_reason=None,
+    compound_detected=False,
+    secondary_intent=None,
+):
+    """Build one legible, ordered, bounded log line for a query: stage order +
+    intent + outcome + key stable IDs. No raw article/answer text; each field is
+    capped so a single line never dumps large payloads.
+    """
+    def _cap(v):
+        s = str(v)
+        return s if len(s) <= _TRACE_MAX_FIELD else s[:_TRACE_MAX_FIELD] + "…"
+
+    parts = ["stages=" + ">".join(stage_log or [])]
+    if intent is not None:
+        conf = f"({intent_confidence:.2f})" if isinstance(intent_confidence, (int, float)) else ""
+        parts.append(f"intent={_cap(intent)}{conf}")
+    if compound_detected:
+        parts.append(f"compound+{_cap(secondary_intent)}")
+    if answer_type is not None:
+        parts.append(f"outcome={_cap(answer_type)}")
+    if source_id is not None:
+        parts.append(f"src={_cap(source_id)}")
+    if fallback_reason:
+        parts.append(f"fallback={_cap(fallback_reason)}")
+    return "[Trace] " + " | ".join(parts)
+
 class MemoryStreamHandler(logging.Handler):
     def __init__(self, capacity=1000):
         super().__init__()

@@ -1,0 +1,60 @@
+{
+  "eval_version": "v1",
+  "kb_version": 1,
+  "note": "Fixed MVP evaluation query set pinned to a fixed KB snapshot. Covers exact-term, compound, clarification, and safety/medical cases. Execution for exact-term and compound is delegated to the dedicated harnesses (exact_term_retrieval_eval.py, compound_eval.py); this catalog is the canonical scenario list reused by the Phase 11 regression suite.",
+  "required_case_types": ["exact_term", "compound", "clarification", "safety_medical"],
+  "scenarios": [
+    {
+      "id": "exact_andres_bonifacio",
+      "type": "exact_term",
+      "query": "where is the Andres Bonifacio building",
+      "expected_behavior": "DIRECT_MATCH on the exact-named building article",
+      "delegates_to": "exact_term_retrieval_eval"
+    },
+    {
+      "id": "exact_clinic_hours",
+      "type": "exact_term",
+      "query": "what are the medical clinic hours",
+      "expected_behavior": "DIRECT_MATCH on the clinic-hours article",
+      "delegates_to": "exact_term_retrieval_eval"
+    },
+    {
+      "id": "compound_fever_doctor",
+      "type": "compound",
+      "query": "i have a high fever, where is the nearest doctor",
+      "expected_behavior": "compound: primary=medical, secondary=location; safety/medical tier first",
+      "delegates_to": "compound_eval:medical_plus_location"
+    },
+    {
+      "id": "compound_safe_toilets",
+      "type": "compound",
+      "query": "is it safe here and where are the toilets",
+      "expected_behavior": "compound: primary=safety, secondary=facilities; safety not buried",
+      "delegates_to": "compound_eval:safety_plus_facilities"
+    },
+    {
+      "id": "clarify_ambiguous_help",
+      "type": "clarification",
+      "query": "help",
+      "expected_behavior": "NEEDS_CLARIFICATION with 2-3 taxonomy chips before rewrite/retrieval"
+    },
+    {
+      "id": "clarify_food_or_water",
+      "type": "clarification",
+      "query": "i need something",
+      "expected_behavior": "NEEDS_CLARIFICATION; resident picks a chip to resolve intent"
+    },
+    {
+      "id": "safety_medical_bleeding",
+      "type": "safety_medical",
+      "query": "someone is bleeding badly and not responding",
+      "expected_behavior": "medical/safety intent prioritized; sos_offered=true; never buried"
+    },
+    {
+      "id": "safety_medical_fire",
+      "type": "safety_medical",
+      "query": "there is a fire near the sleeping area",
+      "expected_behavior": "safety intent prioritized; sos_offered=true"
+    }
+  ]
+}
