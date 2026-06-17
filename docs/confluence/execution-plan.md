@@ -125,14 +125,14 @@ Resolve the gating decision(s) with the **dev-research** skill and record the ch
 | RK-32 remainder, RK-55 | (none) | ✅ **DONE.** RK-37 done; RK-55 populates `fallback_reason`/`failed_stage` (incl. partial-row-on-error); RK-32 persists `KBPublishAttempt` + per-rule `KBValidationResult` at the gate. Also fixed: `routes_admin` dropped imports (app failed to boot). 95 tests green. |
 | Phase 4 | ✅ DONE | Multi-path compound retrieval implemented: `multipath_merge.py` (priority-bucket-then-RRF), `search.retrieve_multipath`/`build_path_queries`/`build_compound_outputs`, `secondary_evidence`+`sos_offered` response, `query_logs.compound_detected`/`compound_paths`, eval scenarios. D7/D8 resolved. 115 tests. |
 | Phase 5 | ✅ DONE | Latency breakdown + final-evidence stability + rule_v1 grounding proxy + KPI report by KB version (structured-only) + fixed eval set + readable trace + 30-day retention purge. D9 resolved. 141 tests. Grounding is eval/review-time (answers not logged). |
-| Phase 6 | **D10, D11** | Config-version signal for cache key; which intents are safety-critical; single-flight? |
+| Phase 6 | ✅ D10, D11 resolved | computed config_signature + kb_version in key; bypass cache for safety-critical intents (single-flight deferred); in-memory dict + TTL/LRU; 5-min default TTL; cache_status hit/miss/bypass logging |
 | Phase 7 | **D12, D13** | `kb_articles` extend-in-place vs new item table; metadata columns vs JSON; evidence-log shape |
 | Phase 8 | **D14** | Image binary storage (filesystem vs object store) + reference representation. *(D15 resolved: 4-state model + thumbnail+rendition.)* |
 | Phase 9 | **D16, D17, D5** | CLIP vs SigLIP (+ version/preprocessing/license); similarity floor + top-N policy + image PII; bias state identifier / per-path vs per-merge |
 | Phase 10 | **D17** | Confidence display policy (carried from Phase 9) |
 | Phase 11 | (none) | Validation only |
 
-Already resolved: **D1–D4, D6** (Sprints 1–3), **D15** (4-state asset model), **D7, D8** (Phase 4), **D9** (Phase 5 — dev-research, see register).
+Already resolved: **D1–D4, D6** (Sprints 1–3), **D15** (4-state asset model), **D7, D8** (Phase 4), **D9** (Phase 5), **D10, D11** (Phase 6 — dev-research, see register).
 
 ---
 
