@@ -13,6 +13,15 @@ from hub.retrieval.search import (
     invalidate_shelter_config_cache,
     invalidate_validation_quarantine_cache,
 )
+from hub.api.routes_auth import get_current_user, get_optional_user
+from hub.validation.metadata import (
+    load_validation_targets,
+    load_taxonomy_reference,
+    validate_metadata,
+    build_publish_gate_handoff,
+)
+from hub.validation import review as metadata_review
+from hub.retrieval.lexical import invalidate_lexical_index
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
