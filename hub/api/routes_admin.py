@@ -19,6 +19,7 @@ from hub.validation.metadata import (
     load_taxonomy_reference,
     validate_metadata,
     build_publish_gate_handoff,
+    PUBLISH_STATUS_PASS,
 )
 from hub.validation import review as metadata_review
 from hub.retrieval.lexical import invalidate_lexical_index
@@ -447,8 +448,72 @@ async def set_emergency_mode(
 
 # ─── Publish (re-embed all) ──────────────────────────────────────────────────
 
+def _safe_next_kb_version(db: Session) -> int:
+    """Intended KB version after this publish (current + 1). Defensive so a
+    mocked/empty SystemVersion never breaks publish."""
+    try:
+        sv = db.query(schema.SystemVersion).first()
+        current = int(sv.kb_version) if sv and sv.kb_version is not None else 0
+    except Exception:
+        current = 0
+    return current + 1
+
+
+def _map_attempt_status(handoff, gate_policy: str) -> str:
+    """Map a publish-gate handoff to KBPublishAttempt.status (pass|blocked|partial)."""
+    if handoff.blocked and gate_policy == "strict":
+        return "blocked"
+    if handoff.status == PUBLISH_STATUS_PASS:
+        return "pass"
+    # WARNING, or warn_only proceeding past a blocked handoff → proceeded with issues.
+    return "partial"
+
+
+def _persist_publish_audit(db, run_result, handoff, gate_policy, kb_version, actor):
+    """RK-32: persist one KBPublishAttempt for this publish, plus the failed
+    per-rule KBValidationResult rows produced by the gate run, linked by
+    publish_attempt_id. Returns the attempt (or None if persistence failed)."""
+    counts = handoff.summary_counts or {}
+    attempt = schema.KBPublishAttempt(
+        kb_version=kb_version,
+        status=_map_attempt_status(handoff, gate_policy),
+        total_items=counts.get("total_items"),
+        approved_count=counts.get("approved"),
+        quarantined_count=counts.get("quarantined"),
+        rejected_count=0,
+        attempted_by=getattr(actor, "username", None),
+    )
+    db.add(attempt)
+    db.flush()  # assign attempt.id for linkage
+
+    # Per-rule firings (the failed rules) for each item, linked to this attempt.
+    try:
+        items = list(getattr(run_result, "items", ()) or ())
+    except TypeError:
+        logger.warning("[Publish] validation run_result.items not iterable; skipping per-rule audit")
+        items = []
+    for item in items:
+        for rule in item.failed_rules:
+            db.add(
+                schema.KBValidationResult(
+                    kb_item_id=item.article_id,
+                    publish_attempt_id=attempt.id,
+                    kb_version=kb_version,
+                    rule_id=rule.rule_id,
+                    severity=rule.severity,
+                    message=rule.message,
+                    passed=False,
+                )
+            )
+    db.commit()
+    return attempt
+
+
 @router.post("/admin/publish")
-async def publish_kb(db: Session = Depends(get_db)):
+async def publish_kb(
+    db: Session = Depends(get_db),
+    current_user: schema.User | None = Depends(get_optional_user),
+):
     """Re-generate embeddings for all enabled articles and bump KB version.
 
     Runs the metadata validation gate before publishing. Behavior depends on the
@@ -465,10 +530,17 @@ async def publish_kb(db: Session = Depends(get_db)):
         known_ids, active_ids = load_taxonomy_reference(db)
         result = validate_metadata(targets, known_ids, active_ids)
         handoff = build_publish_gate_handoff(result)
+        # RK-32: persist the publish attempt + per-rule results BEFORE any
+        # strict-block raise, so blocked attempts are audited too.
+        intended_version = _safe_next_kb_version(db)
+        attempt = _persist_publish_audit(
+            db, result, handoff, gate_policy, intended_version, current_user
+        )
         validation_gate = {
             "status": handoff.status,
             "summary_counts": handoff.summary_counts,
             "failure_reasons": list(handoff.failure_reasons),
+            "publish_attempt_id": getattr(attempt, "id", None),
         }
         if handoff.blocked and gate_policy == "strict":
             print(
