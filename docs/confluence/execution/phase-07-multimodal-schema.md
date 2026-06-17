@@ -3,9 +3,20 @@ title: Execution — Phase 7 — Multimodal schema
 parent: Execution Plan
 ---
 
-# Phase 7 — Multimodal schema (Goal 3, +10, 7)
+# Phase 7 — Multimodal schema (Goal 3, +10, 7) — ✅ COMPLETE
 
-## Objective and scope
+> **STATUS: COMPLETE** (D12/D13 resolved). `kb_articles` replaced by a canonical
+> multimodal **`kb_items`** table (`KBItem` model + `KBArticle` alias so existing
+> references are untouched). New columns: `modality` (default `text`),
+> `image_asset_id` (→ `kb_assets`, Slice 7B), `parent_article_id` + `segment_index`
+> (forward-compat segmentation, **not** enabled), `metadata_json` (JSON extras).
+> `source_id` stays `kb_items.id` — one ID space for text + image. Evidence
+> contract (`QueryResponse`, `SecondaryEvidence`, `final_evidence`) gains
+> `modality` (+ `render_ref`); retrieval/corpus stamp modality (text default).
+> Dev data wiped/re-seeded (fresh `kb_items`), so the "backfill existing articles
+> as text" story is N/A — rows default to text. Backward-compatible: existing
+> text retrieval unchanged. 164-test suite green; app boots. Image binaries +
+> embeddings come in Slices 7B/7C.
 
 Introduce the minimum schema + evidence-contract changes to represent both text and image evidence
 without breaking existing text-only KB behavior. Start of the multimodal track. No semantic chunking
