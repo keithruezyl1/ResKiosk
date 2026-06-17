@@ -19,6 +19,7 @@ session history — none of that belongs here.
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass, field
 from typing import List, Optional
 
@@ -80,6 +81,10 @@ class PipelineResult:
     fallback_reason: Optional[str] = None
     failed_stage: Optional[str] = None
 
+    # Phase 5 / Slice 6A — per-stage latency breakdown in milliseconds.
+    # Keys are STAGE_* constants; only stages that ran are present.
+    stage_latency: dict = field(default_factory=dict)
+
 
 class QueryPipeline:
     """
@@ -129,6 +134,7 @@ class QueryPipeline:
 
         # ── Stage 3: Retrieve (first pass) ───────────────────────────────────
         result.stage_log.append(STAGE_RETRIEVE)
+        _t_retrieve = time.perf_counter()
         try:
             retrieve_result = search.retrieve(
                 db,
@@ -143,6 +149,7 @@ class QueryPipeline:
             retrieve_result = _fallback_no_match(intent, intent_confidence)
             result.failed_stage = STAGE_RETRIEVE
             result.fallback_reason = outcomes.FALLBACK_RETRIEVAL_ERROR
+        result.stage_latency[STAGE_RETRIEVE] = round((time.perf_counter() - _t_retrieve) * 1000, 3)
         result.retrieve_result = retrieve_result
         logger.info(
             f"[Pipeline] {STAGE_RETRIEVE}: answer_type={retrieve_result.get('answer_type')} "
@@ -154,11 +161,13 @@ class QueryPipeline:
         # If retrieval determined clarification is needed, we stop here.
         # Rewrite MUST NOT run, and no second retrieval pass occurs.
         result.stage_log.append(STAGE_CLARIFICATION_GATE)
+        _t_gate = time.perf_counter()
         trigger_reason = retrieve_result.get("clarification_trigger_reason", "not_triggered")
         if retrieve_result.get("answer_type") == "NEEDS_CLARIFICATION":
             result.pipeline_status = "paused"
             result.clarification_triggered = True
             result.clarification_trigger_reason = trigger_reason
+            result.stage_latency[STAGE_CLARIFICATION_GATE] = round((time.perf_counter() - _t_gate) * 1000, 3)
             logger.info(
                 f"[Pipeline] {STAGE_CLARIFICATION_GATE}: clarification_triggered=True "
                 f"trigger_reason={trigger_reason} pipeline_status=paused "
@@ -167,6 +176,7 @@ class QueryPipeline:
             return result
         result.clarification_triggered = False
         result.clarification_trigger_reason = trigger_reason
+        result.stage_latency[STAGE_CLARIFICATION_GATE] = round((time.perf_counter() - _t_gate) * 1000, 3)
         logger.info(
             f"[Pipeline] {STAGE_CLARIFICATION_GATE}: clarification_triggered=False "
             f"trigger_reason={trigger_reason}"
@@ -174,11 +184,13 @@ class QueryPipeline:
 
         # ── Stage 5: Rewrite (only if clarification not needed) ──────────────
         result.stage_log.append(STAGE_REWRITE)
+        _t_rewrite = time.perf_counter()
         candidate = query_rewriter.maybe_rewrite(
             normalized,
             retrieve_result.get("intent", intent),
             retrieve_result.get("confidence", 0.0),
         )
+        result.stage_latency[STAGE_REWRITE] = round((time.perf_counter() - _t_rewrite) * 1000, 3)
         rewrite_happened = candidate != normalized
         result.rewritten_text = candidate if rewrite_happened else None
         result.rewrite_happened = rewrite_happened
