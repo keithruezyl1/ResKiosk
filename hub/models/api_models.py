@@ -168,6 +168,19 @@ class TaxonomyOption(BaseModel):
     label: str
 
 
+class SecondaryEvidence(BaseModel):
+    """Phase 4 / Slice 5 — secondary guidance for a compound query.
+
+    The best evidence from the non-primary retrieval path, surfaced so urgent /
+    safety / medical sub-intents are not buried under the primary answer.
+    Additive and optional — older kiosks ignore it.
+    """
+    intent: str
+    source_id: Optional[int] = None
+    answer_text: Optional[str] = None
+    confidence: Optional[float] = None
+
+
 class QueryResponse(BaseModel):
     answer_text_en: str
     answer_text_localized: Optional[str] = None
@@ -184,6 +197,9 @@ class QueryResponse(BaseModel):
     rlhf_top_score: Optional[float] = None
     follow_up_prompt: Optional[str] = None
     follow_up_intent: Optional[str] = None
+    # Phase 4 / Slice 5 — compound multi-path outputs (additive, optional)
+    secondary_evidence: Optional[SecondaryEvidence] = None
+    sos_offered: bool = False
     # Clarification pause context — populated only when answer_type == NEEDS_CLARIFICATION
     clarification_context: Optional[ClarificationContext] = None
 

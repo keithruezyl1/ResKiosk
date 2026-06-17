@@ -93,6 +93,9 @@ def migrate():
             "bias_applied_count": "ALTER TABLE query_logs ADD COLUMN bias_applied_count INTEGER",
             "bias_top1_changed": "ALTER TABLE query_logs ADD COLUMN bias_top1_changed INTEGER",
             "bias_detail": "ALTER TABLE query_logs ADD COLUMN bias_detail TEXT",
+            # Phase 4 / Slice 5 — compound multi-path retrieval lifecycle
+            "compound_detected": "ALTER TABLE query_logs ADD COLUMN compound_detected INTEGER",
+            "compound_paths": "ALTER TABLE query_logs ADD COLUMN compound_paths TEXT",
         }
         for col, sql in ql_migrations.items():
             if col not in cols:

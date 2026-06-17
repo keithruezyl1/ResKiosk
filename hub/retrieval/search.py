@@ -1294,3 +1294,82 @@ def retrieve_multipath(
         "path_inputs": path_inputs,
         "merged": merged,
     }
+
+
+def _fetch_article_brief(db, article_id) -> Optional[dict]:
+    try:
+        art = (
+            db.query(schema.KBArticle)
+            .filter(schema.KBArticle.id == article_id)
+            .first()
+        )
+        if art:
+            return {"question": art.question, "answer": art.answer}
+    except Exception:
+        logger.exception("[Multipath] secondary article fetch failed")
+    return None
+
+
+def build_compound_outputs(
+    db: Session,
+    normalized_query: str,
+    primary_intent: Optional[str],
+    secondary_intent: Optional[str],
+    *,
+    is_retry: bool = False,
+    exclude_source_ids: Optional[List[int]] = None,
+    query_language: str = "en",
+) -> dict:
+    """S5.6/S5.7: run multi-path retrieval for a compound query and derive the
+    secondary guidance evidence, an SOS offer flag, and a bounded compound-paths
+    log payload (per-path specs + full merged ordering with attribution)."""
+    mp = retrieve_multipath(
+        db,
+        normalized_query,
+        primary_intent,
+        secondary_intent,
+        is_retry=is_retry,
+        exclude_source_ids=exclude_source_ids,
+        query_language=query_language,
+    )
+    merged = mp["merged"]
+    paths = mp["paths"]
+    path_intents = [p[0] for p in paths]
+    sos_offered = any(i in ("safety", "emergency") for i in path_intents)
+
+    # Secondary evidence = best merged candidate from a path other than the primary intent.
+    secondary = None
+    for cand in merged.results:
+        if cand.primary_intent != primary_intent:
+            brief = _fetch_article_brief(db, cand.article_id) or {}
+            secondary = {
+                "intent": cand.primary_intent,
+                "source_id": cand.article_id,
+                "answer_text": brief.get("answer"),
+                "confidence": cand.rrf_score,
+            }
+            break
+
+    compound_paths = {
+        "primary_intent": primary_intent,
+        "secondary_intent": secondary_intent,
+        "paths": [{"intent": i, "priority": pr} for (i, pr, _q) in paths],
+        "merged": [
+            {
+                "article_id": c.article_id,
+                "primary_intent": c.primary_intent,
+                "priority": c.priority,
+                "merged_rank": c.merged_rank,
+                "rrf_score": c.rrf_score,
+                "memberships": [
+                    {"intent": m.intent, "path_rank": m.path_rank} for m in c.memberships
+                ],
+            }
+            for c in merged.results
+        ],
+    }
+    return {
+        "secondary_evidence": secondary,
+        "sos_offered": sos_offered,
+        "compound_paths": compound_paths,
+    }

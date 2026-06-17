@@ -330,3 +330,32 @@ components:
           items:
             type: string
           nullable: true
+        follow_up_prompt:
+          type: string
+          nullable: true
+        follow_up_intent:
+          type: string
+          nullable: true
+        secondary_evidence:
+          $ref: '#/components/schemas/SecondaryEvidence'
+          nullable: true
+        sos_offered:
+          type: boolean
+          default: false
+    SecondaryEvidence:
+      type: object
+      description: >-
+        Phase 4 / Slice 5 — best evidence from the non-primary retrieval path of
+        a compound query, so safety/medical sub-intents are not buried.
+      properties:
+        intent:
+          type: string
+        source_id:
+          type: integer
+          nullable: true
+        answer_text:
+          type: string
+          nullable: true
+        confidence:
+          type: number
+          nullable: true

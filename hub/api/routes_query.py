@@ -320,6 +320,34 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
         if log_fallback_reason is None:
             log_fallback_reason = outcomes.classify_fallback_reason(result)
 
+        # Phase 4 (S5.6/S5.7): for compound queries, run multi-path retrieval to
+        # derive secondary guidance evidence, an SOS offer, and the merge log
+        # payload. Additive; the primary answer above is unchanged.
+        compound_detected = bool(result.get("is_compound"))
+        secondary_evidence_obj = None
+        sos_offered = False
+        compound_paths_json = None
+        if compound_detected and follow_up_intent:
+            try:
+                compound_out = search.build_compound_outputs(
+                    db,
+                    text,
+                    result.get("intent"),
+                    follow_up_intent,
+                    is_retry=query.is_retry,
+                    exclude_source_ids=query.exclude_source_ids,
+                    query_language=query_lang,
+                )
+                se = compound_out.get("secondary_evidence")
+                if se:
+                    secondary_evidence_obj = api_models.SecondaryEvidence(**se)
+                sos_offered = bool(compound_out.get("sos_offered"))
+                compound_paths_json = json.dumps(
+                    compound_out.get("compound_paths"), ensure_ascii=False
+                )
+            except Exception:
+                logger.exception("[Query] Compound multi-path outputs failed")
+
         query_log_id = None
         try:
             import time as _time
@@ -376,6 +404,8 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
                 bias_detail=json.dumps(result.get("bias_detail") or [], ensure_ascii=False),
                 fallback_reason=log_fallback_reason,
                 failed_stage=log_failed_stage,
+                compound_detected=compound_detected,
+                compound_paths=compound_paths_json,
                 created_at=int(_time.time()),
             )
             db.add(log_entry)
@@ -481,6 +511,8 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
             rlhf_top_score=result.get("rlhf_top_score"),
             follow_up_prompt=follow_up_prompt,
             follow_up_intent=follow_up_intent,
+            secondary_evidence=secondary_evidence_obj,
+            sos_offered=sos_offered,
         )
 
     except Exception:

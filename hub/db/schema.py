@@ -71,6 +71,9 @@ class QueryLog(Base):
     bias_applied_count = Column(Integer, nullable=True)  # candidates with non-zero bias applied
     bias_top1_changed = Column(Boolean, nullable=True)   # did bias change top-1 vs raw cosine
     bias_detail = Column(Text, nullable=True)            # JSON: [{id, baseline, bias_value, delta, final}]
+    # Phase 4 / Slice 5 — compound multi-path retrieval lifecycle
+    compound_detected = Column(Boolean, nullable=True)   # was this query handled as compound
+    compound_paths = Column(Text, nullable=True)         # JSON: paths, per-path evidence, merged ordering + tie-breaks
     created_at = Column(Integer)  # Unix timestamp
 
 
