@@ -1,0 +1,49 @@
+{
+  "eval_version": "v1",
+  "kb_version": 1,
+  "config": {
+    "strategy": "priority_bucket_rrf",
+    "note": "Priorities mirror search.INTENT_PRIORITY (safety/emergency=100, medical=90, children/special_needs=80, others=10). Candidates are per-path ranked (article_id, score); rank = list position."
+  },
+  "scenarios": [
+    {
+      "id": "medical_plus_location",
+      "query": "i have a high fever, where is the nearest doctor",
+      "paths": [
+        {"intent": "medical", "priority": 90, "candidates": [[10, 0.62], [11, 0.55]]},
+        {"intent": "location", "priority": 10, "candidates": [[20, 0.81], [10, 0.40]]}
+      ],
+      "expected_primary_intent": "medical",
+      "expected_primary_article_id": 10,
+      "expected_secondary_intent": "location",
+      "expected_secondary_article_id": 20,
+      "note": "Location path scores doc 20 highest, but the medical tier outranks it; doc 10 (in both paths) leads the medical tier."
+    },
+    {
+      "id": "safety_plus_facilities",
+      "query": "is it safe here and where are the toilets",
+      "paths": [
+        {"intent": "safety", "priority": 100, "candidates": [[30, 0.50]]},
+        {"intent": "facilities", "priority": 10, "candidates": [[40, 0.95]]}
+      ],
+      "expected_primary_intent": "safety",
+      "expected_primary_article_id": 30,
+      "expected_secondary_intent": "facilities",
+      "expected_secondary_article_id": 40,
+      "note": "Safety must not be buried beneath a much higher-scoring facilities result."
+    },
+    {
+      "id": "food_plus_hours_same_tier",
+      "query": "when is food served and what are the schedule times",
+      "paths": [
+        {"intent": "food", "priority": 10, "candidates": [[50, 0.70], [51, 0.60]]},
+        {"intent": "hours", "priority": 10, "candidates": [[60, 0.65]]}
+      ],
+      "expected_primary_intent": "food",
+      "expected_primary_article_id": 50,
+      "expected_secondary_intent": "hours",
+      "expected_secondary_article_id": 60,
+      "note": "Same-priority tier: RRF + tie-break (best_path_rank, then article_id asc) decides; doc 50 and 60 tie on RRF, doc 50 wins on article_id."
+    }
+  ]
+}
