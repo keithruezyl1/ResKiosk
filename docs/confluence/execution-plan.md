@@ -122,8 +122,8 @@ Resolve the gating decision(s) with the **dev-research** skill and record the ch
 
 | Before… | Must resolve | Summary |
 |---------|--------------|---------|
-| RK-32 remainder, RK-55 | (none — D6 resolved) | RK-37 ✅ done. RK-55 = populate `fallback_reason`/`failed_stage` (columns exist). RK-32 remainder = persist `KBPublishAttempt` + `KBValidationResult` at publish gate (tables exist) |
-| Phase 4 | **D7, D8** | Top-2 vs bounded top-3 decomposition; merge strategy (priority-first vs RRF-in-bucket), final priority order, secondary/SOS output contract |
+| RK-32 remainder, RK-55 | (none) | ✅ **DONE.** RK-37 done; RK-55 populates `fallback_reason`/`failed_stage` (incl. partial-row-on-error); RK-32 persists `KBPublishAttempt` + per-rule `KBValidationResult` at the gate. Also fixed: `routes_admin` dropped imports (app failed to boot). 95 tests green. |
+| Phase 4 | ✅ D7, D8 resolved | top-2 (`MIN_CONF=0.35`); priority-bucket-then-RRF reusing `fusion.py`; order = `INTENT_PRIORITY` (safety>medical); additive `secondary_evidence`+`sos_offered` contract |
 | Phase 5 | **D9** | Metrics storage location (extend `query_logs` vs related table); hallucination-proxy representation; query-text retention/privacy |
 | Phase 6 | **D10, D11** | Config-version signal for cache key; which intents are safety-critical; single-flight? |
 | Phase 7 | **D12, D13** | `kb_articles` extend-in-place vs new item table; metadata columns vs JSON; evidence-log shape |
@@ -132,7 +132,7 @@ Resolve the gating decision(s) with the **dev-research** skill and record the ch
 | Phase 10 | **D17** | Confidence display policy (carried from Phase 9) |
 | Phase 11 | (none) | Validation only |
 
-Already resolved: **D1–D4, D6** (Sprints 1–3), **D15** (4-state asset model).
+Already resolved: **D1–D4, D6** (Sprints 1–3), **D15** (4-state asset model), **D7, D8** (Phase 4 — dev-research, see register).
 
 ---
 

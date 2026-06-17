@@ -14,13 +14,18 @@ running retrieval per path, and merging deterministically with explicit priority
 or agent. 63 pts equivalent (Slice 5 = 8 stories; Slice 6A observability folded into Phase 5 but
 two of its logging stories are exercised here).
 
-## Gating decisions (resolve first with dev-research)
+## Gating decisions — ✅ RESOLVED (dev-research, recorded in development-plan.md register)
 
-- **D7 — decomposition rule:** top-2 intents only vs bounded top-3 when confidence is high.
-  *Recommended default:* top-2 (matches docs); make the cap a config constant.
-- **D8 — merge strategy + priority order + secondary-output contract:** strict priority-first vs
-  RRF vs priority-bucket-then-RRF; finalize order (proposed: medical > safety > shelter ops >
-  general); define how secondary guidance / SOS offer appears in the response payload.
+- **D7 — decomposition rule:** ✅ **top-2 only.** Cap as `RESKIOSK_COMPOUND_MAX_PATHS=2`.
+  Compound when both top-2 intents are distinct and each ≥ `RESKIOSK_COMPOUND_MIN_CONF`
+  (default `0.35`, = existing `INTENT_ACTION_THRESHOLD`). Bounded top-3 rejected.
+- **D8 — merge strategy + priority order + secondary-output contract:** ✅ **priority-bucket-then-RRF.**
+  Tier candidates by `INTENT_PRIORITY`, order tiers desc, within-tier reuse `fusion.py::rrf_fuse`
+  ordering + tie-break. **Priority order = existing `INTENT_PRIORITY` (safety/emergency 100 >
+  medical 90 > children/special_needs 80 > others 10)** — the implemented order wins over the
+  earlier "medical > safety" proposal. Secondary/SOS contract: additive `secondary_evidence
+  {intent, source_id, answer_text, confidence, path_rank}` + `sos_offered: bool`, built on the
+  existing `follow_up_prompt` / `follow_up_intent` fields (backward-compatible).
 
 ## Dependencies
 

@@ -193,9 +193,10 @@ surface complete evidence (e.g., "high fever + nearest doctor").
    clarification).
 2. **Per-path retrieval** — normalized + intent-specific constrained rewrite, then
    vector or hybrid retrieval, capturing top-k with scores/IDs.
-3. **Deterministic merge** — priority-first (medical > safety > shelter ops >
-   general; finalize order), dedupe, optional RRF within priority buckets;
-   tie-break e.g. `(priority desc, merged_score desc, evidence_id asc)`.
+3. **Deterministic merge** — priority-bucket-then-RRF (D8 resolved): tier by
+   `INTENT_PRIORITY` (safety/emergency > medical > children/special_needs >
+   general), dedupe, RRF within each tier via `fusion.py::rrf_fuse`;
+   within-tier tie-break reuses the fusion tie-break.
 4. **Per-path filtering** — filters applied consistently on each path.
 5. **Evidence attribution** — every returned item records producing path/intent,
    its per-path rank/score, and (if fused) merged score/position.
@@ -563,8 +564,8 @@ before starting that phase.
 | D4 | Gate semantics + medical/safety rule set | ✅ resolved during delivery | (was Phase 2 — done, Sprints 2–3) |
 | D5 | Feedback-bias state identifier | ◐ base layer resolved (Phase 3); per-path vs per-merge application still open for tuning | Phase 9 |
 | D6 | Hybrid retrieval specifics | ✅ resolved — index type, fields, RRF fusion + `k` | (was Phase 3 — done, Sprint 3) |
-| D7 | Multi-path decomposition rule | Top-2 only vs bounded top-3 when confidence high | Phase 4 |
-| D8 | Multi-path merge strategy | Strict priority-first vs RRF vs hybrid (priority bucket + RRF within); final priority order; SOS/secondary-output UX contract | Phase 4 |
+| D7 | Multi-path decomposition rule | ✅ **resolved** — top-2 only (cap as `RESKIOSK_COMPOUND_MAX_PATHS=2`); compound when both top-2 intents distinct and each ≥ `RESKIOSK_COMPOUND_MIN_CONF` (default `0.35`, = `INTENT_ACTION_THRESHOLD`). Bounded top-3 rejected (classify_top2 yields 2; 3rd intent low-precision; +latency). | Phase 4 |
+| D8 | Multi-path merge strategy | ✅ **resolved** — priority-bucket-then-RRF: tier candidates by `INTENT_PRIORITY`, order tiers desc, within-tier reuse `fusion.py::rrf_fuse` ordering/tie-break. **Priority order = existing `INTENT_PRIORITY` (safety/emergency 100 > medical 90 > children/special_needs 80 > others 10)** — code wins over the earlier "medical > safety" proposal. Secondary/SOS contract: additive `secondary_evidence {intent, source_id, answer_text, confidence, path_rank}` + `sos_offered: bool`, built on existing `follow_up_prompt`/`follow_up_intent`. | Phase 4 |
 | D9 | Metrics logging location | Extend `query_logs` vs related table keyed by `query_logs.id`; hallucination-proxy representation; query-text retention/privacy policy | Phase 5 |
 | D10 | Config-version signal for cache | Existing version table vs hash of relevant config | Phase 6 |
 | D11 | Cache safety scope | Which intents are safety-critical for re-validation; single-flight/coalescing this increment? | Phase 6 |
