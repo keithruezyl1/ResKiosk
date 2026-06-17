@@ -127,12 +127,12 @@ Resolve the gating decision(s) with the **dev-research** skill and record the ch
 | Phase 5 | ✅ DONE | Latency breakdown + final-evidence stability + rule_v1 grounding proxy + KPI report by KB version (structured-only) + fixed eval set + readable trace + 30-day retention purge. D9 resolved. 141 tests. Grounding is eval/review-time (answers not logged). |
 | Phase 6 | ✅ DONE | config-aware in-memory response cache (TTL/LRU); key includes kb_version + config_signature; safety-critical intents bypass; invalidate on publish; cache_status logging + KPI hit rate. D10/D11 resolved. 156 tests. |
 | Phase 7 | ✅ DONE | kb_items canonical table (KBItem + KBArticle alias) with modality/image_asset_id/parent_article_id/segment_index/metadata_json; source_id stays kb_items.id; evidence contract gains modality (+render_ref); dev data wiped/reseeded. D12/D13 resolved. 164 tests. Image binaries/embeddings = 7B/7C. |
-| Phase 8 | **D14** | Image binary storage (filesystem vs object store) + reference representation. *(D15 resolved: 4-state model + thumbnail+rendition.)* |
+| Phase 8 | ✅ D14, D15 resolved | filesystem assets under <db_dir>/assets/ (content-addressed sha256, sharded), DB stores refs; kb_assets (4-state, content hash, kb_version, thumb+rendition); served via gated hub endpoint /assets/{id}/{variant}; render_ref = that URL |
 | Phase 9 | **D16, D17, D5** | CLIP vs SigLIP (+ version/preprocessing/license); similarity floor + top-N policy + image PII; bias state identifier / per-path vs per-merge |
 | Phase 10 | **D17** | Confidence display policy (carried from Phase 9) |
 | Phase 11 | (none) | Validation only |
 
-Already resolved: **D1–D4, D6** (Sprints 1–3), **D15** (4-state asset model), **D7, D8** (Phase 4), **D9** (Phase 5), **D10, D11** (Phase 6), **D12, D13** (Phase 7 — dev-research, see register).
+Already resolved: **D1–D4, D6** (Sprints 1–3), **D15** (4-state asset model), **D7, D8** (Phase 4), **D9** (Phase 5), **D10, D11** (Phase 6), **D12, D13** (Phase 7), **D14** (Phase 8 — dev-research, see register).
 
 ---
 
