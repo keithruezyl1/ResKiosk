@@ -36,6 +36,7 @@ EXPORT_FIELDS = [
     "latency_ms", "retrieve_ms", "rewrite_ms", "clarification_ms",
     "fallback_reason", "failed_stage", "clarification_triggered", "compound_detected",
     "grounded_ratio", "unsupported_span_count", "grounding_method", "final_evidence",
+    "cache_status",
     "created_at",
 ]
 
@@ -82,6 +83,15 @@ def _kpis_for_rows(rows: list[dict], normalized_by_id: dict[int, str]) -> dict[s
     repeated = {k: evs for k, evs in groups.items() if len(evs) > 1}
     stable = sum(1 for evs in repeated.values() if len(set(evs)) == 1)
 
+    # Cache outcomes (Phase 6): hit rate over cacheable (hit+miss) requests.
+    cache_counts: dict[str, int] = {}
+    for r in rows:
+        cs = r.get("cache_status")
+        if cs:
+            cache_counts[cs] = cache_counts.get(cs, 0) + 1
+    cacheable = cache_counts.get("hit", 0) + cache_counts.get("miss", 0)
+    cache_hit_rate = round(cache_counts.get("hit", 0) / cacheable, 6) if cacheable else None
+
     return {
         "query_count": n,
         "latency_ms_p50": _percentile(overall, 50),
@@ -98,6 +108,10 @@ def _kpis_for_rows(rows: list[dict], normalized_by_id: dict[int, str]) -> dict[s
         "evidence_stability": {
             "repeated_query_groups": len(repeated),
             "stable_groups": stable,
+        },
+        "cache": {
+            "by_status": dict(sorted(cache_counts.items())),
+            "hit_rate": cache_hit_rate,
         },
     }
 

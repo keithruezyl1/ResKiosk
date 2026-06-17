@@ -23,6 +23,7 @@ from hub.validation.metadata import (
 )
 from hub.validation import review as metadata_review
 from hub.retrieval.lexical import invalidate_lexical_index
+from hub.retrieval.response_cache import invalidate_response_cache
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -575,6 +576,7 @@ async def publish_kb(
     db.commit()
     invalidate_corpus_cache()
     invalidate_lexical_index()
+    invalidate_response_cache()  # Phase 6: never serve a cached answer from an old KB version
 
     print(f"[Publish] Done. {count} embedded, {errors} errors.")
     return {

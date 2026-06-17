@@ -10,6 +10,7 @@ from hub.models import api_models
 from hub.retrieval import search, translator
 from hub.retrieval import formatter
 from hub.retrieval import outcomes
+from hub.retrieval import response_cache
 from hub.retrieval.pipeline import QueryPipeline
 
 logger = logging.getLogger(__name__)
@@ -25,6 +26,34 @@ def _json_result_field(value):
     if isinstance(value, (list, dict)):
         return json.dumps(value, ensure_ascii=False)
     return value
+
+
+def _write_cache_hit_log(db, query, user_language, cached: dict, start_time) -> int | None:
+    """Persist a fresh query_logs row for a cache-hit request (cache_status=hit)
+    so hits are still attributable and feed the KPI report. Best-effort."""
+    import time as _time
+    try:
+        entry = schema.QueryLog(
+            kiosk_id=query.kiosk_id or "",
+            session_id=query.session_id,
+            transcript_original=query.transcript_original,
+            language=user_language,
+            kb_version=query.kb_version,
+            answer_type=cached.get("answer_type"),
+            source_id=cached.get("source_id"),
+            retrieval_score=float(cached.get("confidence") or 0.0),
+            intent_label=cached.get("intent"),
+            latency_ms=round((time.time() - start_time) * 1000, 2),
+            cache_status=response_cache.STATUS_HIT,
+            created_at=int(_time.time()),
+        )
+        db.add(entry)
+        db.commit()
+        return entry.id
+    except Exception:
+        logger.exception("[Cache] hit-log write failed")
+        db.rollback()
+        return None
 
 
 def _retrieval_score_for_log(result: dict) -> float:
@@ -47,6 +76,7 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
     log_fallback_reason = None
     log_failed_stage = None
     log_retrieve_ms = None
+    log_cache_status = None
     try:
         user_language = query.language or "en"
         raw_text = (query.transcript_english or query.transcript_original).strip()
@@ -95,6 +125,47 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
             f"[Query] Pipeline completed in {(time.time() - t1) * 1000:.0f}ms "
             f"stages={pipeline_result.stage_log}"
         )
+
+        # ── Phase 6: safe response cache (D10/D11) ────────────────────────────
+        # Check after the pipeline (we now have normalized text + intent) and
+        # before the route's retrieval + LLM formatting. Retries and clarification
+        # pauses are never cached; safety-critical intents always bypass.
+        cache_key = None
+        _intent_for_cache = pipeline_result.intent
+        _cacheable = (not query.is_retry) and pipeline_result.pipeline_status != "paused"
+        if _cacheable and response_cache.is_safety_critical(_intent_for_cache):
+            log_cache_status = response_cache.STATUS_BYPASS
+            _cacheable = False
+        if _cacheable:
+            cache_key = response_cache.make_cache_key(
+                normalized_query=pipeline_result.normalized_text or text,
+                intent=_intent_for_cache,
+                language=user_language,
+                ui_filter=query.selected_taxonomy_node_id or query.selected_category,
+                exclude_ids=query.exclude_source_ids,
+                kb_version=query.kb_version,
+                config_signature=response_cache.current_config_signature(),
+            )
+            cached = response_cache.get(cache_key)
+            if cached is not None:
+                log_cache_status = response_cache.STATUS_HIT
+                logger.info(f"[Cache] hit intent={_intent_for_cache} key={cache_key[:12]}")
+                hit_log_id = _write_cache_hit_log(db, query, user_language, cached, start_time)
+                sec = cached.get("secondary_evidence")
+                return api_models.QueryResponse(
+                    answer_text_en=cached.get("answer_text_en") or "",
+                    answer_text_localized=cached.get("answer_text_localized"),
+                    answer_type=cached.get("answer_type") or "DIRECT_MATCH",
+                    confidence=float(cached.get("confidence") or 0.0),
+                    kb_version=query.kb_version,
+                    source_id=cached.get("source_id"),
+                    query_log_id=hit_log_id,
+                    follow_up_prompt=cached.get("follow_up_prompt"),
+                    follow_up_intent=cached.get("follow_up_intent"),
+                    secondary_evidence=(api_models.SecondaryEvidence(**sec) if sec else None),
+                    sos_offered=bool(cached.get("sos_offered")),
+                )
+            log_cache_status = response_cache.STATUS_MISS
 
         try:
             t1 = time.time()
@@ -425,6 +496,7 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
                 rewrite_ms=log_rewrite_ms,
                 clarification_ms=log_clarification_ms,
                 final_evidence=final_evidence_json,
+                cache_status=log_cache_status,
                 created_at=int(_time.time()),
             )
             db.add(log_entry)
@@ -515,6 +587,24 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
             if query.session_id not in session_history:
                 session_history[query.session_id] = []
             session_history[query.session_id].append({"user": text, "assistant": answer_text})
+
+        # ── Phase 6: store clean non-safety DIRECT_MATCH answers on a cache miss ──
+        if cache_key is not None and log_cache_status == response_cache.STATUS_MISS and answer_type == "DIRECT_MATCH":
+            try:
+                response_cache.set(cache_key, {
+                    "answer_text_en": answer_text,
+                    "answer_text_localized": answer_text_localized,
+                    "answer_type": answer_type,
+                    "confidence": float(confidence),
+                    "source_id": result.get("source_id"),
+                    "intent": result.get("intent"),
+                    "follow_up_prompt": follow_up_prompt,
+                    "follow_up_intent": follow_up_intent,
+                    "secondary_evidence": (secondary_evidence_obj.model_dump() if secondary_evidence_obj else None),
+                    "sos_offered": sos_offered,
+                })
+            except Exception:
+                logger.exception("[Cache] store failed")
 
         return api_models.QueryResponse(
             answer_text_en=answer_text,

@@ -39,6 +39,23 @@ _POLICY_FILES = ("taxonomy_v1.json", "legacy_category_map_v1.json")
 # key -> [expires_at, payload]
 _CACHE: "OrderedDict[str, list]" = OrderedDict()
 
+# Memoized config signature (config is process-static; recomputed on restart).
+_CONFIG_SIG: Optional[str] = None
+
+
+def current_config_signature() -> str:
+    """Process-memoized config signature (computed once; restart picks up changes)."""
+    global _CONFIG_SIG
+    if _CONFIG_SIG is None:
+        _CONFIG_SIG = build_config_signature()
+    return _CONFIG_SIG
+
+
+def reset_config_signature() -> None:
+    """Test hook: force recomputation of the memoized config signature."""
+    global _CONFIG_SIG
+    _CONFIG_SIG = None
+
 
 # ── config signature (D10) ───────────────────────────────────────────────────
 
