@@ -96,6 +96,15 @@ def migrate():
             # Phase 4 / Slice 5 — compound multi-path retrieval lifecycle
             "compound_detected": "ALTER TABLE query_logs ADD COLUMN compound_detected INTEGER",
             "compound_paths": "ALTER TABLE query_logs ADD COLUMN compound_paths TEXT",
+            # Phase 5 / Slice 6A — MVP metrics
+            "retrieve_ms": "ALTER TABLE query_logs ADD COLUMN retrieve_ms REAL",
+            "rewrite_ms": "ALTER TABLE query_logs ADD COLUMN rewrite_ms REAL",
+            "clarification_ms": "ALTER TABLE query_logs ADD COLUMN clarification_ms REAL",
+            "final_evidence": "ALTER TABLE query_logs ADD COLUMN final_evidence TEXT",
+            "grounded_ratio": "ALTER TABLE query_logs ADD COLUMN grounded_ratio REAL",
+            "unsupported_span_count": "ALTER TABLE query_logs ADD COLUMN unsupported_span_count INTEGER",
+            "grounding_method": "ALTER TABLE query_logs ADD COLUMN grounding_method TEXT",
+            "grounding_detail": "ALTER TABLE query_logs ADD COLUMN grounding_detail TEXT",
         }
         for col, sql in ql_migrations.items():
             if col not in cols:

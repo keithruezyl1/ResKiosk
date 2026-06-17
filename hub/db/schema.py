@@ -74,6 +74,18 @@ class QueryLog(Base):
     # Phase 4 / Slice 5 — compound multi-path retrieval lifecycle
     compound_detected = Column(Boolean, nullable=True)   # was this query handled as compound
     compound_paths = Column(Text, nullable=True)         # JSON: paths, per-path evidence, merged ordering + tie-breaks
+    # Phase 5 / Slice 6A — MVP metrics (D9: extend query_logs, compute KPIs on read)
+    # Latency breakdown (overall latency_ms + lexical_latency_ms already exist)
+    retrieve_ms = Column(Float, nullable=True)           # retrieve stage time
+    rewrite_ms = Column(Float, nullable=True)            # rewrite stage time
+    clarification_ms = Column(Float, nullable=True)      # clarification-gate stage time
+    # Final evidence backing the returned answer (S6A.3) — answer-aligned, for stability
+    final_evidence = Column(Text, nullable=True)         # JSON: {primary_source_id, secondary_source_id, top_k_ids}
+    # Grounding / hallucination proxy (S6A.5; rule_v1 computed offline, or human review)
+    grounded_ratio = Column(Float, nullable=True)        # supported sentences / total (0..1)
+    unsupported_span_count = Column(Integer, nullable=True)
+    grounding_method = Column(String, nullable=True)     # rule_v1 | llm_judge_offline | human
+    grounding_detail = Column(Text, nullable=True)       # JSON: unsupported spans / reviewer note
     created_at = Column(Integer)  # Unix timestamp
 
 
