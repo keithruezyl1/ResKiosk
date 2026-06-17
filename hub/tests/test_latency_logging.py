@@ -16,6 +16,7 @@ from hub.db.session import Base
 from hub.db import schema
 from hub.models import api_models
 from hub.api import routes_query
+from hub.retrieval import response_cache
 from hub.retrieval.pipeline import QueryPipeline, PipelineResult, STAGE_RETRIEVE
 
 
@@ -52,6 +53,7 @@ class TestRouteLatencyAndEvidence(unittest.TestCase):
         e = create_engine("sqlite:///:memory:")
         Base.metadata.create_all(e)
         self.db = sessionmaker(bind=e)()
+        response_cache.invalidate_response_cache()
 
     def tearDown(self):
         self.db.close()
@@ -91,6 +93,7 @@ class TestRouteLatencyAndEvidence(unittest.TestCase):
              patch("hub.api.routes_query.formatter.format_response", return_value="Food is in Hall A."):
             P.return_value.run.return_value = self._pipeline()
             _run(routes_query.submit_query(_req(), db=self.db))
+            response_cache.invalidate_response_cache()  # force a fresh compute, not a cache hit
             _run(routes_query.submit_query(_req(), db=self.db))
         rows = self.db.query(schema.QueryLog).order_by(schema.QueryLog.id.asc()).all()
         self.assertEqual(rows[0].final_evidence, rows[1].final_evidence)

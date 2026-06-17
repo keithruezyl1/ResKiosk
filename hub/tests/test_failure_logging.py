@@ -23,6 +23,7 @@ from hub.db import schema
 from hub.models import api_models
 from hub.api import routes_query
 from hub.retrieval import outcomes
+from hub.retrieval import response_cache
 from hub.retrieval.pipeline import QueryPipeline, PipelineResult
 
 
@@ -137,6 +138,7 @@ class TestPipelineFailureSurfacing(unittest.TestCase):
 class TestQueryRouteFailureLogging(unittest.TestCase):
     def setUp(self):
         self.db = _make_db()
+        response_cache.invalidate_response_cache()
 
     def tearDown(self):
         self.db.close()

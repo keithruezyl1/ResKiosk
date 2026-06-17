@@ -17,6 +17,7 @@ from hub.db.session import Base
 from hub.db import schema
 from hub.models import api_models
 from hub.api import routes_query
+from hub.retrieval import response_cache
 from hub.retrieval.pipeline import PipelineResult
 
 
@@ -39,6 +40,7 @@ def _req(**kw):
 class TestCompoundRouteIntegration(unittest.TestCase):
     def setUp(self):
         self.db = sessionmaker(bind=self._engine())()
+        response_cache.invalidate_response_cache()
 
     def _engine(self):
         e = create_engine("sqlite:///:memory:")
