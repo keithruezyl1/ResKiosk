@@ -3,7 +3,19 @@ title: Execution — Phase 6 — Safe caching
 parent: Execution Plan
 ---
 
-# Phase 6 — Safe caching (Goal 11) — deferred (44 pts)
+# Phase 6 — Safe caching (Goal 11) — ✅ COMPLETE
+
+> **STATUS: COMPLETE** (D10/D11 resolved). `hub/retrieval/response_cache.py`:
+> config-aware, in-memory, TTL (300s default) + LRU response cache. Key =
+> normalized_query | intent | language | ui_filter | exclude_ids | kb_version |
+> config_signature (D10 — hash of retrieval-affecting config + policy files).
+> Safety-critical intents (safety/emergency/medical/children/special_needs)
+> **bypass** (D11). /query checks after the pipeline and before retrieval+LLM
+> formatting; caches only clean non-safety DIRECT_MATCH; hits still write an
+> attributable query_logs row (cache_status hit|miss|bypass). /admin/publish
+> calls invalidate_response_cache(). KPI report surfaces hit/miss/bypass + hit rate.
+> 156-test suite green; app boots. **Deferred:** safety re-validation, single-flight,
+> cross-worker shared cache.
 
 ## Objective and scope
 
