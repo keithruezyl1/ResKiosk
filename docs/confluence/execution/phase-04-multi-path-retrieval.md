@@ -5,6 +5,19 @@ parent: Execution Plan
 
 # Phase 4 — Multi-path / compound retrieval (Goal 5, +4, 7, 12, 10)
 
+> **✅ STATUS: COMPLETE.** All stories S5.1–S5.8 implemented and tested (115-test
+> hub suite green; app boots). Key artifacts: `hub/retrieval/multipath_merge.py`
+> (priority-bucket-then-RRF merge), `search.retrieve_multipath` / `build_path_queries`
+> / `build_compound_outputs`, `api_models.SecondaryEvidence` +
+> `QueryResponse.secondary_evidence`/`sos_offered`, `query_logs.compound_detected`/
+> `compound_paths`, and `hub/eval/compound_eval.py`. Note: detection (S5.1) reused
+> the existing `_resolve_compound_intents` + `RESKIOSK_COMPOUND_INTENT_MIN=0.35`.
+> Known follow-ups: the primary answer still comes from the existing single-pass
+> retrieval (multi-path drives secondary evidence + merge logging); folding the
+> merged top into the primary answer, and reducing the extra per-compound
+> retrieve() calls, are deferred perf/quality items. `emergency` intent priority
+> exists but is not in `INTENT_LABELS` (SOS reachability to confirm).
+
 ## Objective and scope
 
 Handle compound / multi-intent resident queries by decomposing into intent-scoped retrieval paths,
