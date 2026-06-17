@@ -14,28 +14,34 @@ delivered**, and starts from what actually remains. Every one of the 12 incremen
 goals is covered, including the two deferred items (safe caching,
 feedback-ranking tuning) — nothing is dropped.
 
-**Current baseline (delivered):** Phases 0, 1, and the bulk of Phases 2–3 are
-delivered (canonical pipeline + logging skeleton + taxonomy/filtering,
-clarify-first UX, trusted-publish validation gate, and hybrid BM25+vector
-retrieval with RRF, including the Goal 9 bias-layer integration). The Goal 10
+**Current baseline (delivered):** Phases 0, 1, **3** (now complete), and the bulk
+of Phase 2 are delivered (canonical pipeline + logging skeleton +
+taxonomy/filtering, clarify-first UX, trusted-publish validation gate, and hybrid
+BM25+vector retrieval with RRF, including the Goal 9 bias-layer integration **and
+the full lexical/vector/fusion contribution logging — RK-37**). The Goal 10
 **structured query-log schema** is also done.
 
-**Carried forward from Sprint 3 (three logging/observability stories NOT
-finished — all 3 pts each, all Goal 10):**
+> **Re-baselined after the Sprint 1–3 merge.** Verified against the merged code:
+> **RK-37 is DONE** (`hub/retrieval/search.py` builds the full lexical/vector/fusion
+> breakdown; `hub/api/routes_query.py` writes `lexical_*`, `vector_*`,
+> `fusion_*` + `bias_*` to `query_logs`). Phase 3 is now ✅ complete.
+
+**Carried forward — still outstanding after the merge (Goal 10):**
 
 - **RK-32 — "Log validation and publish audit events"** (Slice 3 / Goal 8 + Goal
-  10). Tracked under **Phase 2** as outstanding — Phase 2 is therefore *not* fully
-  complete.
-- **RK-37 — "Add hybrid retrieval contribution logging"** (Slice 4 / Goal 4 +
-  Goal 10). Tracked under **Phase 3** as outstanding — Phase 3 is therefore *not*
-  fully complete; it links retrieval to Phase 5 observability.
-- **RK-55 — "Add failure and fallback outcome logging"** (Slice 6A / Goal 10).
-  Part of **Phase 5** observability completion.
+  10, 3 pts) — **partially done.** The audit *tables* exist and are populated for
+  reviews: `kb_publish_attempts`, `kb_validation_results` (per-rule firings),
+  `kb_review_decisions` (with `reviewer_id` + reason code), `kb_item_validation_status`.
+  **Remaining:** wire the `/admin/publish` endpoint to persist a `KBPublishAttempt`
+  row + the per-rule `KBValidationResult` rows at gate time (it currently only
+  `logger.info`s the gate outcome), and add audit tests. Tracked under **Phase 2**.
+- **RK-55 — "Add failure and fallback outcome logging"** (Slice 6A / Goal 10,
+  3 pts) — **outstanding.** `query_logs.fallback_reason` / `failed_stage` columns
+  exist but are never populated by the query path. Part of **Phase 5**.
 
-These three are on the critical path to Phase 5 (KPI computation needs complete,
-trustworthy logs). **The next remaining feature work is Phase 4 (multi-path /
-compound retrieval)**, but the carried-forward logging items should be closed
-alongside Phases 2–5.
+Both remaining items are on the critical path to Phase 5 (KPI computation needs
+complete, trustworthy logs). **The next remaining feature work is Phase 4
+(multi-path / compound retrieval)**; close RK-32 + RK-55 alongside Phases 2–5.
 
 > **Ownership:** there is **no team / per-person split** — all work items are
 > ours to do. Story points are retained from the sprint docs as relative size
@@ -60,11 +66,11 @@ Global constraints carried from the increment docs:
 | Goal | Title | Delivered in |
 |------|-------|--------------|
 | 12 | Canonical pipeline order | ✅ Phase 0 (done); reinforced every phase |
-| 10 | MVP metrics + logging | Skeleton ✅ Phase 0; query-log schema ✅ Phase 3; **outstanding logging stories RK-32 (Phase 2), RK-37 (Phase 3), RK-55 (Phase 5)**; KPI computation + reporting, **grounding-proxy review fields, and readable hub log formatting** remain in Phase 5 |
+| 10 | MVP metrics + logging | Skeleton ✅ Phase 0; query-log schema ✅ Phase 3; contribution logging ✅ (RK-37); **outstanding: RK-32 publish-audit wiring (Phase 2), RK-55 failure/fallback (Phase 5)**; KPI computation + reporting, **grounding-proxy review fields, and readable hub log formatting** remain in Phase 5 |
 | 7 | Metadata schema + filtering policy | ✅ Phase 0 (done) |
 | 6 | Clarification UX before rewriting | ✅ Phase 1 (Sprint 2) |
-| 8 | Metadata validation gate | ◐ Phase 2 (Sprints 2–3) — core done; **RK-32 audit-event logging outstanding** |
-| 4 | Hybrid retrieval (BM25 + vectors) | ◐ Phase 3 (Sprint 3) — retrieval/RRF done; **RK-37 contribution logging outstanding** |
+| 8 | Metadata validation gate | ◐ Phase 2 (Sprints 2–3) — core + review audit done; **RK-32 publish-attempt/rule-result persistence outstanding** |
+| 4 | Hybrid retrieval (BM25 + vectors) | ✅ Phase 3 (Sprint 3) — retrieval/RRF + RK-37 contribution logging done |
 | 9 | Retrieval quality without heavy reranking | Bias layer ✅ Phase 3; deferred **tuning remains** in Phase 9 |
 | 5 | Multi-path / compound retrieval | Phase 4 (next remaining) |
 | 11 | Safer caching (version + TTL + refresh) | Phase 6 (deferred); **image-artifact publish invalidation** in Phase 8 |
@@ -130,20 +136,26 @@ rejected` with rule IDs, severity, reviewer/timestamp/reason); publish gating
 tied to KB version); quarantined metadata excluded from resident retrieval.
 *(Optional offline LLM-judge assist remains available but non-blocking.)*
 
-**▶ Outstanding (carried forward from Sprint 3):**
+**▶ Outstanding (carried forward from Sprint 3 — partially done after merge):**
 
 - **RK-32 — Story 6: "Log validation and publish audit events"** (Goal 8 + Goal
-  10, 3 pts). Emit auditable log events for rule firings, reviewer decisions, and
-  overrides, traceable to operator identity and KB version. Until this lands, the
-  audit trail is incomplete for downstream KPI/reporting.
+  10, 3 pts). **Already in place:** audit tables `kb_publish_attempts`,
+  `kb_validation_results` (per-rule firings: `rule_id`, `severity`, `passed`),
+  `kb_review_decisions` (`reviewer_id`, `decision`, `reason_code`, `notes`), and
+  `kb_item_validation_status`; the review endpoint persists decisions with operator
+  identity. **Remaining:** the `/admin/publish` endpoint runs the gate but only
+  `logger.info`s the outcome — wire it to persist a `KBPublishAttempt` row + the
+  per-rule `KBValidationResult` rows at gate time, link review decisions/validation
+  results to that attempt, and add audit tests.
 
-**Definition of done:** validation correctness is met; **Phase 2 is not fully
-done until RK-32 is closed** so every validation/publish decision is captured in
-the structured log. *(Decisions D3, D4 — resolved during delivery.)*
+**Definition of done:** validation correctness is met; **Phase 2 is not fully done
+until the publish-attempt + rule-result persistence (RK-32 remainder) is wired and
+tested** so every publish/validation decision is captured, not just logged.
+*(Decisions D3, D4 — resolved during delivery.)*
 
 ---
 
-## Phase 3 — Deterministic retrieval core (◐ NEARLY COMPLETE — Sprint 3)
+## Phase 3 — Deterministic retrieval core (✅ COMPLETE — Sprint 3)
 
 *Original Slice 4 (Goals 4, 9 bias layer, 7, 10).*
 
@@ -152,19 +164,15 @@ the structured log. *(Decisions D3, D4 — resolved during delivery.)*
 lexical+vector fusion via **RRF** with tie-break `(fused_score desc,
 kb_articles.id asc)`; filter policy enforced on both paths; the **Goal 9
 feedback-adjusted bias layer integration** (bounded, capped, logged baseline vs
-post-bias); exact-term evaluation set.
+post-bias); exact-term evaluation set; **RK-37 hybrid retrieval contribution
+logging** — `hub/retrieval/search.py` emits per-item lexical/vector/fused ids +
+scores + ranks + fusion strategy/params/tie-breaks + bias detail, and
+`hub/api/routes_query.py` writes them all to `query_logs`.
 
-**▶ Outstanding (carried forward from Sprint 3):**
-
-- **RK-37 — Story 5: "Add hybrid retrieval contribution logging"** (Goal 4 + Goal
-  10, 3 pts). Per evidence item, record lexical vs vector vs fused contribution.
-  This is the data Phase 5 needs to attribute retrieval quality; it links Phase 3
-  to Phase 5 observability.
-
-**Definition of done:** retrieval accuracy/determinism is met (exact-term set
-improved; rankings stable for fixed KB version/config/query; bias layer respects
-caps, hard rules, filters). **Phase 3 is not fully done until RK-37 is closed** so
-per-component contributions are observable. *(Decisions D5, D6 — resolved during
+**Definition of done:** met. Retrieval accuracy/determinism achieved (exact-term
+set improved; rankings stable for fixed KB version/config/query; bias layer
+respects caps, hard rules, filters); per-component contributions are observable in
+the logs. *(Decisions D5, D6 — resolved during
 delivery. Cross-encoder reranking remains explicitly out of scope. Goal 9 bias
 **tuning** is still deferred — see Phase 9.)*
 
@@ -244,9 +252,9 @@ before introducing caching state or multimodal evidence.
    payloads, so logs are legible during development, demos, and field operation.
    This is operational legibility, distinct from the structured-log schema (item 1).
 
-> Note: the three carried-forward logging stories — **RK-32** (Phase 2 audit
-> events), **RK-37** (Phase 3 retrieval contribution), and **RK-55** (above) —
-> together make the logs complete and trustworthy. All three should be closed
+> Note: **RK-37 is done** (contribution logging landed in the Sprint 1–3 merge).
+> The remaining carried-forward logging items — **RK-32 remainder** (Phase 2
+> publish-attempt/rule-result persistence) and **RK-55** (above) — should be closed
 > before KPI computation (items 3–4), or the metrics will be computed over
 > incomplete logs.
 >
@@ -255,10 +263,10 @@ before introducing caching state or multimodal evidence.
 > only if a gap is found.
 
 **Dependencies / rationale.** Schema depends on Phase 0; KPI/reporting depend on
-the three carried-forward logging stories (RK-32/37/55) and benefit strongly from
-Phases 1–4 (and should reflect Phase 4 multi-path output). Metrics must be complete
-**before** multimodal so image evidence is measurable, and before caching so
-caching cannot hide regressions.
+the remaining carried-forward logging items (RK-32 remainder + RK-55) and benefit
+strongly from Phases 1–4 (and should reflect Phase 4 multi-path output). Metrics
+must be complete **before** multimodal so image evidence is measurable, and before
+caching so caching cannot hide regressions.
 
 **Definition of done.** RK-55 closed; grounding-proxy review fields present and
 populated for sampled queries; hub logs legible per the readable-log format; a
@@ -572,27 +580,27 @@ before starting that phase.
 ## Dependency summary (linear critical path)
 
 ```
-Phase 0 (DONE), Phase 1 (DONE)
-Phase 2 (◐ core done; RK-32 open) ┐
-Phase 3 (◐ core done; RK-37 open) ┤
-                                  ├─→ Phase 4 (multi-path)
-   [RK-32, RK-37, RK-55] ─────────┴──────────────────────→ Phase 5 (RK-55 + KPI/reporting)
-                                                                ├─→ Phase 6 (caching, optional/parallel)
-                                                                └─→ Phase 7 → Phase 8 → Phase 9 → Phase 10
-                                                                                                     ↓
-                                                                                                Phase 11 (stabilize)
+Phase 0 (DONE), Phase 1 (DONE), Phase 3 (DONE — incl. RK-37)
+Phase 2 (◐ core+review-audit done; RK-32 publish-attempt persistence open) ┐
+                                                                           ├─→ Phase 4 (multi-path)
+   [RK-32 remainder, RK-55] ───────────────────────────────────────────── ┴──→ Phase 5 (RK-55 + KPI/reporting)
+                                                                                  ├─→ Phase 6 (caching, optional/parallel)
+                                                                                  └─→ Phase 7 → Phase 8 → Phase 9 → Phase 10
+                                                                                                                       ↓
+                                                                                                                  Phase 11 (stabilize)
 ```
 
 - **Backbone → scope/safety → accuracy → observability → performance → multimodal**,
   exactly as the increment intended.
 - Delivered so far: **Phase 0** (backbone + scope), **Phase 1** (clarify-first),
-  the cores of **Phase 2** (trusted publish) and **Phase 3** (hybrid retrieval +
-  bias layer), and the **Phase 5 logging schema**.
-- **Three logging stories carried forward (all Goal 10, 3 pts each):** RK-32
-  (Phase 2 audit events), RK-37 (Phase 3 retrieval contribution), RK-55 (Phase 5
-  failure/fallback). They are **on the critical path to Phase 5** — KPI computation
-  must run over complete logs, so close all three before Phase 5 items 3–4.
-- **Remaining:** RK-32 + RK-37 (close anytime; needed by Phase 5) · Phase 4
+  **Phase 3** (hybrid retrieval + bias layer + RK-37 contribution logging), the
+  core + review-audit of **Phase 2** (trusted publish), and the **Phase 5 logging
+  schema**.
+- **Carried-forward logging after the merge (Goal 10, 3 pts each):** RK-37 ✅ done;
+  **RK-32 remainder** (Phase 2 publish-attempt/rule-result persistence) and **RK-55**
+  (Phase 5 failure/fallback) still open — **on the critical path to Phase 5**, close
+  both before Phase 5 items 3–4.
+- **Remaining:** RK-32 remainder + RK-55 (close anytime; needed by Phase 5) · Phase 4
   (multi-path) · Phase 5 (RK-55 + KPI/reporting) · {Phase 6 caching ∥ Phases 7–10
   multimodal} · Phase 11.
 - Phase 6 (caching) is the only optional/parallelizable branch; everything else is

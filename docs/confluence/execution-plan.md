@@ -82,10 +82,9 @@ vs "schema add."
 The dependency chain is mostly linear; one branch (caching) is optional/parallel.
 
 ```
-[Close carried-forward logging first — small, unblocks Phase 5]
-  RK-32  (Phase 2 audit-event logging)        ─┐
-  RK-37  (Phase 3 retrieval contribution log)  ┤→ enable trustworthy logs
-  RK-55  (Phase 5 failure/fallback logging)   ─┘
+[Post-merge status: RK-37 is DONE (contribution logging landed). Close the rest first.]
+  RK-32 remainder (Phase 2 publish-attempt + per-rule result persistence) ─┐
+  RK-55           (Phase 5 failure/fallback logging)                       ─┘→ trustworthy logs
 
 Phase 4  Multi-path / compound retrieval
    │
@@ -106,9 +105,10 @@ Phase 5  Observability completion (RK-55 + KPIs + grounding-proxy + readable log
 
 Practical sequencing notes:
 
-- Do **RK-37** and **RK-55** before/with Phase 4 so multi-path emits complete contribution and
-  failure logs from day one. Do **RK-32** anytime before Phase 5 KPI work.
-- Phase 5 KPIs must run over complete logs → RK-32/37/55 are true prerequisites.
+- **RK-37 is already done** (contribution logging landed in the Sprint 1–3 merge). Do **RK-55**
+  before/with Phase 4 so multi-path emits complete failure logs from day one. Do the **RK-32
+  remainder** (publish-attempt + per-rule result persistence) anytime before Phase 5 KPI work.
+- Phase 5 KPIs must run over complete logs → the RK-32 remainder + RK-55 are true prerequisites.
 - Phase 6 (caching) depends only on Phase 5 metrics being trustworthy; it is **not** a blocker for
   the multimodal track and may be deferred indefinitely without blocking Phases 7–10.
 - The multimodal track is strictly ordered 7 → 8 → 9 → 10 (schema → assets → embeddings → kiosk).
@@ -122,7 +122,7 @@ Resolve the gating decision(s) with the **dev-research** skill and record the ch
 
 | Before… | Must resolve | Summary |
 |---------|--------------|---------|
-| RK-32/37/55 | (none — D6 resolved) | Pure logging population against existing columns |
+| RK-32 remainder, RK-55 | (none — D6 resolved) | RK-37 ✅ done. RK-55 = populate `fallback_reason`/`failed_stage` (columns exist). RK-32 remainder = persist `KBPublishAttempt` + `KBValidationResult` at publish gate (tables exist) |
 | Phase 4 | **D7, D8** | Top-2 vs bounded top-3 decomposition; merge strategy (priority-first vs RRF-in-bucket), final priority order, secondary/SOS output contract |
 | Phase 5 | **D9** | Metrics storage location (extend `query_logs` vs related table); hallucination-proxy representation; query-text retention/privacy |
 | Phase 6 | **D10, D11** | Config-version signal for cache key; which intents are safety-critical; single-flight? |

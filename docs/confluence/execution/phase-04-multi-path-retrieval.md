@@ -25,8 +25,9 @@ two of its logging stories are exercised here).
 ## Dependencies
 
 Phase 3 hybrid retrieval (done) — multi-path reuses it per path. Phase 0/1 (pipeline, filters,
-clarification). Pairs with **RK-37** and **RK-55** (so per-path contribution + failure logging
-exist). Intent classification (`hub/retrieval/intent.py`) must expose top-2 with confidences.
+clarification). **RK-37** (per-path/per-component contribution logging) is already done; pair this
+with **RK-55** (so compound paths emit failure/fallback logging). Intent classification
+(`hub/retrieval/intent.py`) must expose top-2 with confidences.
 
 ## Ordered execution steps
 

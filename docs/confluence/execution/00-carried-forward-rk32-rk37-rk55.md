@@ -7,61 +7,41 @@ parent: Execution Plan
 
 ## Objective and scope
 
-Close the three Sprint-3 logging stories that were not finished. All three are **Goal 10**,
-3 pts each, and all are about making the structured logs **complete and trustworthy** so Phase 5
-KPI computation runs over real data. Two of the three are largely **populate existing columns**
-(the schema already exists in `query_logs`); RK-32 adds publish/validation audit logging.
-
-Do these first — they are small and unblock Phase 5.
+Close the remaining carried-forward logging from Sprint 3 so structured logs are **complete and
+trustworthy** for Phase 5 KPI computation. **Post-merge status:** RK-37 is **DONE**; RK-55 is
+outstanding; RK-32 is **partially done** (audit tables + review-decision persistence exist; the
+publish-gate persistence remains). Do the remaining two first — they are small and unblock Phase 5.
 
 ## Gating decisions
 
-None. D6 (hybrid specifics) is resolved. RK-32 storage may reuse the existing audit approach in
-`hub/validation/review.py`; if a dedicated table is wanted, align with D9 but a simple log table
-or structured logger is acceptable for MVP.
+None. D6 (hybrid specifics) is resolved. RK-32's storage already exists as dedicated tables
+(`kb_publish_attempts`, `kb_validation_results`, `kb_review_decisions`, `kb_item_validation_status`).
 
 ## Ordered execution steps
 
-1. RK-37 (retrieval contribution population) — smallest, in the hot path; do with/just before Phase 4.
-2. RK-55 (failure/fallback population) — pipeline-wide; do alongside Phase 4 so multi-path inherits it.
-3. RK-32 (publish/validation audit events) — independent; do anytime before Phase 5 KPIs.
+1. RK-55 (failure/fallback population) — pipeline-wide; do alongside Phase 4 so multi-path inherits it.
+2. RK-32 remainder (publish-attempt + per-rule result persistence at the gate) — anytime before Phase 5 KPIs.
 
 ---
 
-## RK-37 — Add hybrid retrieval contribution logging (Goal 4 + Goal 10, 3 pts)
+## RK-37 — Add hybrid retrieval contribution logging (Goal 4 + Goal 10, 3 pts) — ✅ DONE (verified in merge)
 
-**What to implement.** Ensure every retrieval that runs hybrid fusion **populates** the per-item
-contribution fields already defined on `query_logs`: `lexical_top_k_ids/scores/ranks`,
-`vector_top_k_ids/scores/ranks`, `fusion_strategy`, `fusion_top_k_ids/scores/ranks`. The fusion
-layer already computes these (`FusedCandidate` carries `vector_rank`, `lexical_rank`,
-`vector_score`, `lexical_score`, `overlap_count`); wire them through to the log write.
+**Status.** Implemented and verified against the merged code; **no remaining work.**
 
-**Files/modules touched.**
-- `hub/retrieval/fusion.py` — confirm `FusionOutput`/`FusedCandidate` expose per-item lexical vs
-  vector vs fused contribution (already present); add a small serializer helper if needed.
-- `hub/retrieval/search.py` — ensure the retrieve result returns the fusion breakdown to the caller.
-- `hub/api/routes_query.py` — at log-write time, serialize the breakdown into the existing
-  `lexical_*`, `vector_*`, `fusion_*` columns (JSON arrays, top-5).
-- `hub/db/schema.py` — **no change** (columns exist).
+- `hub/retrieval/search.py` builds the full `retrieval_metadata`: `lexical_top_k_ids/scores/ranks`,
+  `vector_top_k_ids/scores/ranks`, `fusion_strategy`, `fusion_parameters`,
+  `fusion_top_k_ids/scores/ranks`, `fusion_tie_breaks`, plus `bias_enabled/bias_applied_count/
+  bias_top1_changed/bias_detail`.
+- `hub/api/routes_query.py` writes all of these to `query_logs` (both the pause-state and final
+  write paths).
+- Existing coverage in `hub/tests/test_hybrid_retrieval.py` / `test_fusion.py`.
 
-**Acceptance criteria.**
-- For a hybrid query, the written `query_logs` row has non-null `lexical_top_k_*`,
-  `vector_top_k_*`, `fusion_strategy="rrf"`, and `fusion_top_k_*`, each a JSON array of length
-  ≤ `RESKIOSK_HYBRID_TOP_K`.
-- IDs in `fusion_top_k_ids` reconcile with the returned evidence order.
-- Vector-only path (no lexical) logs lexical fields as empty arrays, not null-crashes.
-
-**Tests to write.**
-- Extend `hub/tests/test_hybrid_retrieval.py`: assert contribution fields are populated and lengths
-  bounded; assert each fused ID is traceable to a lexical and/or vector rank.
-- Determinism: same query twice → identical `fusion_top_k_ids/scores/ranks`.
-
-**Dependencies / DoD.** Depends on Phase 3 (done). **Done when** every hybrid query writes a
-complete, bounded, reproducible contribution breakdown and tests pass.
+If hardening is wanted later, add an explicit determinism test (same query twice → identical
+`fusion_top_k_ids/scores/ranks`) — optional, not required to close the story.
 
 ---
 
-## RK-55 — Add failure and fallback outcome logging (Goal 10, 3 pts)
+## RK-55 — Add failure and fallback outcome logging (Goal 10, 3 pts) — ▶ OUTSTANDING
 
 **What to implement.** Populate `fallback_reason` and `failed_stage` (columns already exist) at
 every pipeline exit that is not a clean answer, and preserve a **partial log** rather than dropping
@@ -96,35 +76,47 @@ pipeline exit is attributable from logs and tests cover all reason codes.
 
 ---
 
-## RK-32 — Log validation and publish audit events (Goal 8 + Goal 10, 3 pts)
+## RK-32 — Log validation and publish audit events (Goal 8 + Goal 10, 3 pts) — ◐ PARTIALLY DONE
 
-**What to implement.** Emit auditable events for the validation/publish lifecycle: rule firings,
-reviewer decisions (approve/reject/override), and the publish gate outcome — each traceable to
-operator identity and KB version.
+**Already in place (verified in merge).** The audit data model and the *review* half are done:
+- Tables: `KBPublishAttempt` (`kb_publish_attempts`), `KBValidationResult` (`kb_validation_results`
+  — one row per rule check: `rule_id`, `severity`, `passed`, `message`, `kb_version`,
+  `publish_attempt_id`), `KBReviewDecision` (`kb_review_decisions` — `reviewer_id`, `decision`,
+  `reason_code`, `notes`), `KBItemValidationStatus`.
+- `hub/api/routes_admin.py::submit_metadata_review` → `hub/validation/review.py::
+  apply_metadata_review` persists `kb_item_validation_status` + `kb_review_decisions` with the
+  authenticated `reviewer_id` (operator identity) and reason code.
+- `/admin/publish` runs the gate (`build_publish_gate_handoff`) and blocks under strict policy.
+
+**Remaining to implement.** The *publish-time persistence* is the gap — `/admin/publish` currently
+only `logger.info`s the gate outcome:
+- On `/admin/publish`, create a `KBPublishAttempt` row (KB version, outcome pass/block/warn,
+  counts of approved/quarantined, actor, timestamp).
+- Persist the per-rule `KBValidationResult` rows produced by the gate run, linked to that
+  `publish_attempt_id` (so rule firings at publish time are captured, not just at review time).
+- Backfill `publish_attempt_id` linkage on the validation results / review decisions for that run.
 
 **Files/modules touched.**
-- `hub/validation/metadata.py` — emit a structured audit event per rule firing (rule id, severity,
-  item id, result).
-- `hub/validation/review.py` — emit events on approve/reject/override with reviewer + reason code.
-- `hub/api/routes_kb.py` / `hub/api/routes_admin.py` — on `/admin/publish` (gate outcome) emit a
-  publish-audit event with KB version, pass/block/warn, and counts of approved/quarantined.
-- Storage: prefer reusing existing audit storage in `review.py`; if a table is needed, add an
-  idempotent migration in `hub/db/migrate_schema.py` + model in `hub/db/schema.py`
-  (e.g., `validation_audit_events`). Keep aligned with D9 but do not block on it.
-- Console (optional, read-only): surface events in `console/src/pages/LogsViewer.jsx` if cheap.
+- `hub/api/routes_admin.py` — `publish_kb` (~line 441): write `KBPublishAttempt` + persist gate
+  `KBValidationResult` rows.
+- `hub/validation/metadata.py` — expose the per-rule results from the gate run for persistence
+  (results are computed in `validate_metadata` / `build_publish_gate_handoff`).
+- `hub/db/schema.py` / `hub/db/migrate_schema.py` — **no new tables** (all exist); add columns only
+  if a field is missing.
 
 **Acceptance criteria.**
-- Validating a KB snapshot writes one audit event per fired rule with stable rule IDs + severity.
-- Each review decision and override writes an event with reviewer identity, reason code, KB version.
-- `/admin/publish` writes a gate-outcome event (pass/block/warn + counts), tied to KB version.
-- Events are queryable/joinable by KB version and item id.
+- `/admin/publish` writes one `KBPublishAttempt` row per attempt (KB version, outcome, counts,
+  actor, timestamp).
+- The gate's per-rule results persist as `KBValidationResult` rows linked to that attempt.
+- Review decisions/validation results are joinable to the publish attempt by `publish_attempt_id`.
+- Strict-block and warn paths both record an attempt.
 
 **Tests to write.**
-- Extend `hub/tests/test_metadata_validation.py` and `test_publish_gate.py`: assert audit events
-  are emitted for rule firings and for the gate outcome.
-- New `hub/tests/test_validation_audit.py`: approve/reject/override emit correct events with
-  identity + reason + KB version.
+- New `hub/tests/test_publish_audit.py`: publish (pass / block / warn) → assert a `KBPublishAttempt`
+  row + linked `KBValidationResult` rows with correct rule IDs/severity, actor, KB version.
+- Extend `hub/tests/test_publish_gate.py`: gate run persists results (currently it does not assert
+  audit).
 
-**Dependencies / DoD.** Depends on Phase 2 core (done). **Done when** the full
-validation→review→publish path is auditable from events and tests pass. Closing RK-32 flips
+**Dependencies / DoD.** Depends on Phase 2 core + review audit (done). **Done when** every publish
+attempt and its rule results are persisted (not just logged) and tests pass. Closing this flips
 Phase 2 from ◐ to ✅.

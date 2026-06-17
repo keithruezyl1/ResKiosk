@@ -20,9 +20,9 @@ readable hub-log formatting, the fixed evaluation set, and a KPI report by KB ve
 
 ## Dependencies
 
-Phase 0 logging backbone (done) + the structured schema (done). **RK-32, RK-37, RK-55 must be
-closed first** — KPIs must run over complete logs. Benefits from Phases 1–4; KPI reporting should
-reflect Phase 4 multi-path output.
+Phase 0 logging backbone (done) + the structured schema (done) + RK-37 (done). **The RK-32
+remainder (publish-attempt persistence) and RK-55 must be closed first** — KPIs must run over
+complete logs. Benefits from Phases 1–4; KPI reporting should reflect Phase 4 multi-path output.
 
 ## Ordered execution steps
 
