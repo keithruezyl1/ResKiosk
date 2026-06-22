@@ -3,7 +3,27 @@ title: Execution — Phase 10 — Kiosk image rendering & multimodal demo
 parent: Execution Plan
 ---
 
-# Phase 10 — Kiosk image rendering & multimodal demo (Goal 1, 2, 10)
+# Phase 10 — Kiosk image rendering & multimodal demo (Goal 1, 2, 10) — ◐ HUB-SIDE DONE; front-end + eval remaining
+
+> **STATUS: hub-side complete; the rest is front-end / real-data work this Python
+> environment can't build or verify.**
+>
+> **Done (hub):** S7D.2 image-evidence payload (Phase 9 `image_evidence` + `render_ref`);
+> S7D.10 text-only fallback (tested — no/failed image leaves the text answer intact);
+> **S7D.3 hub side — `QueryResponse.image_primary`** + `RESKIOSK_IMAGE_PRIMARY_FLOOR`
+> (0.30): image-first when confident, tentative (non-authoritative, D17) below it.
+> S7D.6 backend (`GET /admin/kb/assets[/{id}]`) already shipped in Phase 8.
+>
+> **Remaining (NOT doable here — needs the Android/React toolchains or real model+images):**
+> - **Kiosk (Kotlin/Compose, `kiosk/`):** S7D.1 render image evidence, S7D.3 kiosk image-first
+>   UI, S7D.4 broken-image placeholders, S7D.11 thumbnail/rendition-first loading, kiosk-side
+>   deserialization/VM tests. No gradle/kotlinc available here — writing it blind would be untested.
+> - **Console (React, `console/`):** S7D.6 asset-status UI (backend endpoint ready; no console test runner).
+> - **S7D.7 multimodal demo/regression set:** real value needs the bundled CLIP model + labeled
+>   images (same blocker as RK-92); a stub version would duplicate existing tests.
+>
+> Hub is ready for the kiosk to consume `image_evidence` / `image_primary` / `render_ref` via
+> `GET /assets/{id}/{variant}`.
 
 ## Objective and scope
 
