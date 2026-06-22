@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Settings, Wifi, WifiOff, Terminal, Phone, MessageSquare, Moon, Sun, AlertTriangle, X, HelpCircle, LogOut, User } from 'lucide-react';
+import { LayoutDashboard, FileText, Settings, Wifi, WifiOff, Terminal, Phone, MessageSquare, Moon, Sun, AlertTriangle, X, HelpCircle, LogOut, User, Image } from 'lucide-react';
 import hubClient from './api/hubClient';
 import logoSvg from './assets/reskiosk-logo.svg';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -15,6 +15,7 @@ import LogsViewer from './pages/LogsViewer';
 import EmergencyCalls from './pages/EmergencyCalls';
 import HubMessages from './pages/HubMessages';
 import QueryTracker from './pages/QueryTracker';
+import AssetManager from './pages/AssetManager';
 import Login from './pages/Login';
 import ProfileSetup from './pages/ProfileSetup';
 
@@ -191,6 +192,7 @@ function AppShell() {
                     <nav className="sidebar-nav">
                         <NavItem to="/" icon={LayoutDashboard} label="Dashboard" />
                         <NavItem to="/kb" icon={FileText} label="Knowledge Base" />
+                        <NavItem to="/assets" icon={Image} label="Image Assets" />
 
                         <NavItem to="/config" icon={Settings} label="Shelter Config" />
                         <NavItem to="/network" icon={Wifi} label="Network Setup" />
@@ -244,6 +246,7 @@ function AppShell() {
                     <Routes>
                         <Route path="/" element={<Dashboard setEmergencyMode={setEmergencyMode} />} />
                         <Route path="/kb" element={<KBViewer />} />
+                        <Route path="/assets" element={<AssetManager />} />
 
                         <Route path="/faq/:id/edit" element={<FAQManager isNew={false} />} />
                         <Route path="/config" element={<ShelterConfig />} />
