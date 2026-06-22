@@ -3,7 +3,24 @@ title: Execution — Phase 8 — Image asset lifecycle
 parent: Execution Plan
 ---
 
-# Phase 8 — Image asset lifecycle (Goal 2, +11, 10)
+# Phase 8 — Image asset lifecycle (Goal 2, +11, 10) — ✅ COMPLETE
+
+> **STATUS: COMPLETE** (D14 + D15 resolved). `image_assets` table (`ImageAsset`)
+> + `hub/services/image_assets.py`: filesystem storage under `<db_dir>/assets/`
+> (`RESKIOSK_ASSETS_DIR`), content-addressed sha256 sharded paths, global dedup;
+> deterministic Pillow thumbnail (256px) + display rendition (1024px) — LANCZOS,
+> fixed WEBP quality/method, shrink-only, aspect preserved, no upscale;
+> decompression-bomb guard + mime/size validation. 4-state model
+> (pending/ready/failed/rejected) with reason codes; only `ready` is
+> resident-facing. API (`routes_assets.py`): `POST /admin/kb/assets` (upload +
+> optional kb-item link), `GET /admin/kb/assets[/{id}]` (admin status), and the
+> kiosk-facing `GET /assets/{id}/{variant}` (FileResponse, **gated to `ready`**).
+> KB-version linkage + broken-artifact guard + lifecycle logging; publish stamps
+> the KB version onto ready assets. openapi updated. 190-test suite green; app boots.
+>
+> **Deferred (per doc, optional):** the React `AssetManager.jsx` console view —
+> the backend status/list endpoints it would consume are done; treat the UI as a
+> manual/console task. Embeddings over these assets are Phase 9 (7C).
 
 ## Objective and scope
 

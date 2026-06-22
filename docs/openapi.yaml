@@ -202,6 +202,58 @@ paths:
               schema:
                 $ref: '#/components/schemas/QueryResponse'
 
+  /admin/kb/assets:
+    post:
+      summary: Upload a KB image asset (admin)
+      description: >-
+        Accepts a multipart image (png/jpeg/webp). Stores the original + a
+        deterministic thumbnail and display rendition (content-addressed), and
+        creates a `ready` ImageAsset. Invalid type/size → 400 (rejected);
+        undecodable → 422 (failed). Optional `kb_item_id` links the asset to a
+        KB image item.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                kb_item_id:
+                  type: integer
+                  nullable: true
+      responses:
+        '200': { description: Asset stored (ready) }
+        '400': { description: Rejected (unsupported mime / too large) }
+        '422': { description: Failed (undecodable / too many pixels) }
+    get:
+      summary: List image assets + status (admin)
+      responses:
+        '200': { description: Array of asset status objects }
+  /admin/kb/assets/{id}:
+    get:
+      summary: Get one image asset's status/metadata (admin)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200': { description: Asset status object }
+        '404': { description: Not found }
+  /assets/{id}/{variant}:
+    get:
+      summary: Serve an image asset variant to the kiosk
+      description: >-
+        Returns the file for variant `thumb` | `display` | `original`, but ONLY
+        if the asset is `ready` (4-state gate). pending/failed/rejected/missing
+        all return 404. This is the URL shape used by QueryResponse.render_ref.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+        - { name: variant, in: path, required: true, schema: { type: string, enum: [thumb, display, original] } }
+      responses:
+        '200': { description: Image bytes (image/webp for thumb/display) }
+        '404': { description: Not available / not found }
+
 components:
   schemas:
     NetworkInfo:
