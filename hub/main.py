@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from hub.api import routes_system, routes_kb, routes_admin, routes_query, routes_network, routes_emergency, routes_messages, routes_lora, routes_auth
+from hub.api import routes_system, routes_kb, routes_admin, routes_query, routes_network, routes_emergency, routes_messages, routes_lora, routes_auth, routes_assets
 from hub.db.init_db import init_db
 
 app = FastAPI(title="ResKiosk Hub", version="0.2")
@@ -145,6 +145,7 @@ app.include_router(routes_network.router)
 app.include_router(routes_kb.router)
 app.include_router(routes_admin.router)
 app.include_router(routes_query.router)
+app.include_router(routes_assets.router)
 app.include_router(routes_emergency.router)
 app.include_router(routes_messages.router)
 app.include_router(routes_lora.router)
