@@ -1386,3 +1386,94 @@ def build_compound_outputs(
         "sos_offered": sos_offered,
         "compound_paths": compound_paths,
     }
+
+
+# ─── Phase 9 (Slice 7C) — text→image semantic retrieval ──────────────────────
+
+IMAGE_SIM_THRESHOLD = float(os.environ.get("RESKIOSK_IMAGE_SIM_THRESHOLD", 0.26))
+IMAGE_TOP_N = int(os.environ.get("RESKIOSK_IMAGE_TOP_N", 3))
+
+
+def _load_image_corpus(db, excluded_ids):
+    """Eligible image evidence: enabled image KB items, not excluded by filter
+    policy (disabled/quarantined/rejected), whose asset is `ready` and has a
+    current-model embedding. Returns list of (source_id, asset_id, vector)."""
+    from hub.retrieval.embedder import deserialize_embedding
+    from hub.retrieval import image_embedder as ie
+
+    items = (
+        db.query(schema.KBItem)
+        .filter(
+            schema.KBItem.enabled == 1,
+            schema.KBItem.modality == "image",
+            schema.KBItem.image_asset_id.isnot(None),
+        )
+        .all()
+    )
+    out = []
+    for it in items:
+        if it.id in excluded_ids:
+            continue
+        asset = (
+            db.query(schema.ImageAsset)
+            .filter(schema.ImageAsset.id == it.image_asset_id)
+            .first()
+        )
+        if not asset or asset.status != "ready" or not asset.embedding:
+            continue
+        if asset.embedding_model != ie.MODEL_VERSION:
+            continue  # stale/foreign-model embedding — exclude until regenerated
+        vec = deserialize_embedding(asset.embedding)
+        if vec is None:
+            continue
+        out.append((it.id, asset.id, vec))
+    return out
+
+
+def retrieve_images(db, query_text, *, top_n=None, floor=None, embedder=None):
+    """S7C.5/7/8: encode the (English) query in CLIP space and return ranked image
+    evidence above the similarity floor. Applies filter/validation gates (only
+    enabled, non-quarantined/rejected items with `ready`, current-model embeddings).
+    Deterministic tie-break: (score desc, source_id asc). Safe empty result."""
+    import numpy as _np
+    from hub.retrieval import image_embedder as ie
+    from hub.retrieval import filter_policy
+    from hub.services import image_assets as ia
+
+    top_n = IMAGE_TOP_N if top_n is None else top_n
+    floor = IMAGE_SIM_THRESHOLD if floor is None else floor
+
+    try:
+        excluded = filter_policy.compute_excluded_article_ids(db)
+    except Exception:
+        excluded = frozenset()
+    corpus = _load_image_corpus(db, excluded)
+    if not corpus:
+        return []
+
+    emb = embedder or ie.load_image_embedder()
+    qvec = emb.embed_text(query_text)
+    matrix = _np.array([c[2] for c in corpus], dtype=_np.float64)
+    sims = ie.cosine_sim(qvec, matrix)
+
+    scored = [
+        (float(score), source_id, asset_id)
+        for (source_id, asset_id, _vec), score in zip(corpus, sims)
+        if float(score) >= floor
+    ]
+    scored.sort(key=lambda x: (-x[0], x[1]))  # score desc, source_id asc
+
+    results = []
+    for rank, (score, source_id, asset_id) in enumerate(scored[:top_n], start=1):
+        results.append(
+            {
+                "source_id": source_id,
+                "image_asset_id": asset_id,
+                "score": round(score, 6),
+                "rank": rank,
+                "modality": "image",
+                "render_ref": ia.render_ref(asset_id),
+            }
+        )
+    logger.info(f"[ImageSearch] q='{query_text[:50]}' candidates={len(corpus)} hits={len(results)} floor={floor}")
+    return results

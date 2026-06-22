@@ -100,6 +100,15 @@ async def get_asset_status(asset_id: int, db: Session = Depends(get_db),
     return _asset_dict(asset)
 
 
+@router.get("/assets/search")
+async def search_images(q: str, db: Session = Depends(get_db)):
+    """Kiosk-facing text->image semantic search (Phase 9). Returns ranked image
+    evidence above the similarity floor (modality, score, rank, render_ref)."""
+    from hub.retrieval import search
+    results = search.retrieve_images(db, q)
+    return {"query": q, "results": results}
+
+
 @router.get("/assets/{asset_id}/{variant}")
 async def serve_asset(asset_id: int, variant: str, db: Session = Depends(get_db)):
     """Kiosk-facing. Serves a variant ONLY for `ready` assets (4-state gate);
