@@ -3,7 +3,26 @@ title: Execution — Phase 9 — Image embeddings & semantic retrieval (+ bias t
 parent: Execution Plan
 ---
 
-# Phase 9 — Image embeddings & semantic retrieval (Goal 1, +10, 7, 8) + deferred Goal 9 bias tuning (5 pts)
+# Phase 9 — Image embeddings & semantic retrieval (Goal 1, +10, 7, 8) + deferred Goal 9 bias tuning (5 pts) — ✅ Slice 7C COMPLETE (S9.tune deferred)
+
+> **STATUS: Slice 7C COMPLETE** (D16/D17 resolved). `hub/retrieval/image_embedder.py`
+> — CLIP ViT-B/32 via sentence-transformers (Apache-2.0, CPU, bundled to
+> `hub_models/clip` via `bundle_models.py`); same offline load pattern as the text
+> embedder. Image embeddings persisted on `image_assets` (embedding / embedding_model
+> / embedding_kb_version), generated at publish, **readiness-gated** + model-version
+> invalidated, encoder loaded only when there's work. `search.retrieve_images()` =
+> text→image path: CLIP-text query vs image vectors, `RESKIOSK_IMAGE_SIM_THRESHOLD`
+> (~0.26, calibrate) + `RESKIOSK_IMAGE_TOP_N` (3) + deterministic `(score desc,
+> source_id asc)` tie-break; gates exclude disabled/quarantined/rejected/non-ready/
+> stale-model/missing-embedding. `GET /assets/search?q=` (kiosk) + additive
+> `image_evidence` on `/query` (fail-safe, skipped on retry, [] fast with no image
+> KB) recorded in `final_evidence`; image-search logs carry model+floor+top_n.
+> 212-test suite green (CLIP stubbed throughout); app boots.
+>
+> **Deferred:** **S9.tune** (feedback-bias tuning) — gated on **D5** (bias state /
+> per-path vs per-merge), still open; revisit with metrics. S7C.6 "merge" is
+> implemented as an additive `image_evidence` list alongside text (not interleaved
+> into one ranked list) — sufficient for Goal 1; revisit if a unified ranking is wanted.
 
 ## Objective and scope
 
