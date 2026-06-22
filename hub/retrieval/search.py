@@ -1392,6 +1392,10 @@ def build_compound_outputs(
 
 IMAGE_SIM_THRESHOLD = float(os.environ.get("RESKIOSK_IMAGE_SIM_THRESHOLD", 0.26))
 IMAGE_TOP_N = int(os.environ.get("RESKIOSK_IMAGE_TOP_N", 3))
+# Phase 10 (S7D.3): a top image at/above this (higher) floor is confident enough to
+# lead the kiosk display (image-first). Between IMAGE_SIM_THRESHOLD and this, image
+# evidence is shown but NOT authoritative (D17).
+IMAGE_PRIMARY_FLOOR = float(os.environ.get("RESKIOSK_IMAGE_PRIMARY_FLOOR", 0.30))
 
 
 def _load_image_corpus(db, excluded_ids):

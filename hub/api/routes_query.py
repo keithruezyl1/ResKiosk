@@ -445,6 +445,13 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
             except Exception:
                 logger.exception("[Query] image evidence retrieval failed")
 
+        # Phase 10 (S7D.3): mark image-first when the top image is confident enough
+        # to lead; otherwise image evidence stays tentative (not authoritative, D17).
+        image_primary = bool(
+            image_evidence_objs
+            and (image_evidence_objs[0].confidence or 0.0) >= search.IMAGE_PRIMARY_FLOOR
+        )
+
         # Phase 5 (S6A.2/S6A.3): latency breakdown + final-evidence stability anchor.
         stage_lat = getattr(pipeline_result, "stage_latency", {}) or {}
         log_rewrite_ms = stage_lat.get("rewrite")
@@ -655,6 +662,7 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
             modality=result.get("modality") or "text",
             render_ref=None,
             image_evidence=image_evidence_objs,
+            image_primary=image_primary,
         )
 
     except Exception:

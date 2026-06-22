@@ -78,6 +78,29 @@ class TestQueryImageEvidence(unittest.TestCase):
         self.assertIn("image_evidence", row.final_evidence)
         self.assertEqual(json.loads(row.final_evidence)["image_evidence"][0]["source_id"], 11)
 
+    def test_image_primary_when_top_score_high(self):
+        imgs = [{"source_id": 11, "image_asset_id": 5, "score": 0.42, "rank": 1,
+                 "modality": "image", "render_ref": "/assets/5/display"}]
+        with patch("hub.api.routes_query.QueryPipeline") as P, \
+             patch("hub.api.routes_query.search.retrieve", return_value=self._dm()), \
+             patch("hub.api.routes_query.formatter.format_response", return_value="ok"), \
+             patch("hub.api.routes_query.search.retrieve_images", return_value=imgs):
+            P.return_value.run.return_value = self._pipeline()
+            resp = _run(routes_query.submit_query(_req(), db=self.db))
+        self.assertTrue(resp.image_primary)  # 0.42 >= IMAGE_PRIMARY_FLOOR (0.30)
+
+    def test_image_tentative_when_low_score(self):
+        imgs = [{"source_id": 11, "image_asset_id": 5, "score": 0.27, "rank": 1,
+                 "modality": "image", "render_ref": "/assets/5/display"}]
+        with patch("hub.api.routes_query.QueryPipeline") as P, \
+             patch("hub.api.routes_query.search.retrieve", return_value=self._dm()), \
+             patch("hub.api.routes_query.formatter.format_response", return_value="ok"), \
+             patch("hub.api.routes_query.search.retrieve_images", return_value=imgs):
+            P.return_value.run.return_value = self._pipeline()
+            resp = _run(routes_query.submit_query(_req(), db=self.db))
+        self.assertIsNotNone(resp.image_evidence)   # shown...
+        self.assertFalse(resp.image_primary)         # ...but not authoritative (0.27 < 0.30)
+
     def test_no_image_evidence_when_none(self):
         with patch("hub.api.routes_query.QueryPipeline") as P, \
              patch("hub.api.routes_query.search.retrieve", return_value=self._dm()), \

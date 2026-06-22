@@ -208,6 +208,9 @@ class QueryResponse(BaseModel):
     render_ref: Optional[str] = None  # image render/asset reference, populated in 7B/7C
     # Phase 9 / Slice 7C — image evidence retrieved alongside the text answer (additive)
     image_evidence: Optional[List[SecondaryEvidence]] = None
+    # Phase 10 / Slice 7D — kiosk should lead with the image (top image confident).
+    # When False but image_evidence is present, images are tentative, not authoritative (D17).
+    image_primary: bool = False
     # Clarification pause context — populated only when answer_type == NEEDS_CLARIFICATION
     clarification_context: Optional[ClarificationContext] = None
 
