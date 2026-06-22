@@ -1475,5 +1475,8 @@ def retrieve_images(db, query_text, *, top_n=None, floor=None, embedder=None):
                 "render_ref": ia.render_ref(asset_id),
             }
         )
-    logger.info(f"[ImageSearch] q='{query_text[:50]}' candidates={len(corpus)} hits={len(results)} floor={floor}")
+    logger.info(
+        f"[ImageSearch] q='{query_text[:50]}' model={getattr(emb, 'model_version', '?')} "
+        f"candidates={len(corpus)} hits={len(results)} floor={floor} top_n={top_n}"
+    )
     return results

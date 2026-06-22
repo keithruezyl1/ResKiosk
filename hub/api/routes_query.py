@@ -2,6 +2,7 @@ import time
 import asyncio
 import logging
 import json
+import os
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from hub.db.session import get_db
@@ -422,6 +423,28 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
             except Exception:
                 logger.exception("[Query] Compound multi-path outputs failed")
 
+        # Phase 9 (S7C.6): retrieve image evidence alongside the text answer.
+        # Additive + fail-safe (never breaks the text answer); skipped on retry.
+        # Returns [] fast when there is no image KB (no encoder load), so existing
+        # text-only queries/tests are unaffected.
+        image_evidence_objs = None
+        if (not query.is_retry) and os.environ.get("RESKIOSK_IMAGE_IN_QUERY", "true").lower() == "true":
+            try:
+                imgs = search.retrieve_images(db, text)
+                if imgs:
+                    image_evidence_objs = [
+                        api_models.SecondaryEvidence(
+                            intent="image",
+                            source_id=i["source_id"],
+                            modality="image",
+                            render_ref=i["render_ref"],
+                            confidence=i["score"],
+                        )
+                        for i in imgs
+                    ]
+            except Exception:
+                logger.exception("[Query] image evidence retrieval failed")
+
         # Phase 5 (S6A.2/S6A.3): latency breakdown + final-evidence stability anchor.
         stage_lat = getattr(pipeline_result, "stage_latency", {}) or {}
         log_rewrite_ms = stage_lat.get("rewrite")
@@ -432,6 +455,10 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
                 "primary_modality": result.get("modality") or "text",
                 "secondary_source_id": (secondary_evidence_obj.source_id if secondary_evidence_obj else None),
                 "top_k_ids": result.get("fusion_top_k_ids") or result.get("vector_top_k_ids"),
+                "image_evidence": (
+                    [{"source_id": e.source_id, "render_ref": e.render_ref, "score": e.confidence}
+                     for e in image_evidence_objs] if image_evidence_objs else None
+                ),
             },
             ensure_ascii=False,
         )
@@ -627,6 +654,7 @@ async def submit_query(query: api_models.QueryRequest, db: Session = Depends(get
             sos_offered=sos_offered,
             modality=result.get("modality") or "text",
             render_ref=None,
+            image_evidence=image_evidence_objs,
         )
 
     except Exception:

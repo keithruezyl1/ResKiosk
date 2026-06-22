@@ -206,6 +206,8 @@ class QueryResponse(BaseModel):
     # Phase 7 / Slice 7A — modality of the primary answer evidence (text|image)
     modality: Optional[str] = "text"
     render_ref: Optional[str] = None  # image render/asset reference, populated in 7B/7C
+    # Phase 9 / Slice 7C — image evidence retrieved alongside the text answer (additive)
+    image_evidence: Optional[List[SecondaryEvidence]] = None
     # Clarification pause context — populated only when answer_type == NEEDS_CLARIFICATION
     clarification_context: Optional[ClarificationContext] = None
 

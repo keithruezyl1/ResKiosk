@@ -240,6 +240,18 @@ paths:
       responses:
         '200': { description: Asset status object }
         '404': { description: Not found }
+  /assets/search:
+    get:
+      summary: Text→image semantic search (Phase 9)
+      description: >-
+        Encodes the English query in CLIP space and returns ranked image
+        evidence above the similarity floor (RESKIOSK_IMAGE_SIM_THRESHOLD),
+        limited to RESKIOSK_IMAGE_TOP_N. Only enabled, non-quarantined items
+        with a `ready` asset + current-model embedding are eligible.
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string } }
+      responses:
+        '200': { description: '{ query, results:[{source_id, image_asset_id, score, rank, modality, render_ref}] }' }
   /assets/{id}/{variant}:
     get:
       summary: Serve an image asset variant to the kiosk
