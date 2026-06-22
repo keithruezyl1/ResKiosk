@@ -578,6 +578,15 @@ async def publish_kb(
     invalidate_lexical_index()
     invalidate_response_cache()  # Phase 6: never serve a cached answer from an old KB version
 
+    # Phase 8 (S7B.6/7): stamp the published KB version onto ready image assets.
+    try:
+        from hub.services import image_assets
+        sv = db.query(schema.SystemVersion).first()
+        if sv is not None and isinstance(getattr(sv, "kb_version", None), int):
+            image_assets.link_assets_to_kb_version(db, sv.kb_version)
+    except Exception:
+        logger.exception("[Publish] asset KB-version linkage failed")
+
     print(f"[Publish] Done. {count} embedded, {errors} errors.")
     return {
         "status": "published",

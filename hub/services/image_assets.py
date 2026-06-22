@@ -205,3 +205,47 @@ def variant_path(asset: schema.ImageAsset, variant: str) -> Optional[Path]:
 def render_ref(asset_id: int, variant: str = VARIANT_DISPLAY) -> str:
     """The kiosk-facing URL for an asset variant (evidence contract render_ref)."""
     return f"/assets/{asset_id}/{variant}"
+
+
+def set_status(db, asset: schema.ImageAsset, status: str, failure_reason: Optional[str] = None) -> schema.ImageAsset:
+    """S7B.5/9: transition an asset's state and log it."""
+    asset.status = status
+    if failure_reason is not None:
+        asset.failure_reason = failure_reason
+    db.commit()
+    logger.info(f"[Assets] asset_id={asset.id} -> status={status} reason={failure_reason}")
+    return asset
+
+
+def asset_files_ok(asset: schema.ImageAsset) -> bool:
+    """S7B.9: broken/missing-artifact guard — all three variant files present."""
+    for variant in (VARIANT_ORIGINAL, VARIANT_THUMB, VARIANT_DISPLAY):
+        p = variant_path(asset, variant)
+        if p is None or not p.exists():
+            return False
+    return True
+
+
+def link_assets_to_kb_version(db, kb_version: int) -> int:
+    """S7B.6/7: stamp the published KB version onto the `ready` assets referenced
+    by enabled KB items. Content-addressed artifacts don't change across versions,
+    so this is the version linkage (logs can join image evidence to a KB version)
+    and the publish-time refresh point. Returns the count linked."""
+    rows = (
+        db.query(schema.KBItem.image_asset_id)
+        .filter(schema.KBItem.enabled == 1, schema.KBItem.image_asset_id.isnot(None))
+        .all()
+    )
+    ids = {r[0] for r in rows if r[0] is not None}
+    if not ids:
+        return 0
+    assets = (
+        db.query(schema.ImageAsset)
+        .filter(schema.ImageAsset.id.in_(ids), schema.ImageAsset.status == STATUS_READY)
+        .all()
+    )
+    for a in assets:
+        a.kb_version = kb_version
+    db.commit()
+    logger.info(f"[Assets] linked {len(assets)} ready asset(s) to kb_version={kb_version}")
+    return len(assets)
