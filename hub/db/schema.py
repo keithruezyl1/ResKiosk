@@ -181,6 +181,32 @@ class KBItem(Base):
 KBArticle = KBItem
 
 
+class ImageAsset(Base):
+    """Phase 8 / Slice 7B — first-class image asset (Goal 2).
+
+    Binaries live on the filesystem (content-addressed, under the assets dir);
+    this row stores references + integrity/lifecycle metadata. Referenced by
+    kb_items.image_asset_id. 4-state model (D15): only `ready` is resident-facing.
+    """
+    __tablename__ = "image_assets"
+
+    id             = Column(Integer, primary_key=True, autoincrement=True)
+    content_hash   = Column(String, nullable=False, index=True)  # sha256 of original bytes
+    mime           = Column(String, nullable=True)
+    size_bytes     = Column(Integer, nullable=True)
+    width          = Column(Integer, nullable=True)               # original dimensions
+    height         = Column(Integer, nullable=True)
+    original_ref   = Column(String, nullable=True)               # path relative to assets dir
+    thumb_ref      = Column(String, nullable=True)
+    rendition_ref  = Column(String, nullable=True)
+    rendition_hash = Column(String, nullable=True)               # derivative hash (determinism check)
+    kb_version     = Column(Integer, nullable=True)              # KB version at publish/link time
+    status         = Column(String, nullable=False, default="pending")  # pending|ready|failed|rejected
+    failure_reason = Column(String, nullable=True)              # stable reason code when failed/rejected
+    created_at     = Column(DateTime, default=datetime.utcnow)
+    updated_at     = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class EvacInfo(Base):
     """Single-row table for all editable shelter operations data."""
     __tablename__ = "evac_info"
