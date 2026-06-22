@@ -48,6 +48,20 @@ data class ClarificationContext(
 
 // --- Response model ---
 
+/**
+ * Phase 9/10 (Slice 7C/7D) — one piece of image evidence returned alongside the
+ * text answer. `renderRef` is a hub-relative path (e.g. "/assets/5/display");
+ * prepend the configured hub base URL to load it (GET /assets/{id}/{variant}).
+ */
+data class ImageEvidence(
+    @SerializedName("intent") val intent: String?,
+    @SerializedName("source_id") val sourceId: Int?,
+    @SerializedName("answer_text") val answerText: String?,
+    @SerializedName("confidence") val confidence: Float?,
+    @SerializedName("modality") val modality: String?,
+    @SerializedName("render_ref") val renderRef: String?
+)
+
 data class HubQueryResponse(
     @SerializedName("answer_text_en") val answerTextEn: String?,
     @SerializedName("answer_text_localized") val answerTextLocalized: String?,
@@ -60,7 +74,11 @@ data class HubQueryResponse(
     @SerializedName("rlhf_top_source_id") val rlhfTopSourceId: Int?,
     @SerializedName("rlhf_top_score") val rlhfTopScore: Float?,
     @SerializedName("follow_up_prompt") val followUpPrompt: String?,
-    @SerializedName("follow_up_intent") val followUpIntent: String?
+    @SerializedName("follow_up_intent") val followUpIntent: String?,
+    // Phase 9/10 — multimodal evidence (additive; null for text-only responses)
+    @SerializedName("modality") val modality: String? = null,
+    @SerializedName("image_primary") val imagePrimary: Boolean? = null,
+    @SerializedName("image_evidence") val imageEvidence: List<ImageEvidence>? = null
 )
 
 data class PingResponse(

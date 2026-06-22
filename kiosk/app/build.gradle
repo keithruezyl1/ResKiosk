@@ -60,6 +60,11 @@ dependencies {
     // Retrofit
     implementation 'com.squareup.retrofit2:retrofit:2.9.0'
     implementation 'com.squareup.retrofit2:converter-gson:2.9.0'
+
+    // Coil — Compose image loading for KB image evidence (Phase 10 / Slice 7D).
+    // NOTE: added with the kiosk image-rendering draft; run a Gradle sync.
+    // 2.5.0 targets Compose/Kotlin compatible with this BOM (2023.06.01); adjust if sync flags a version.
+    implementation 'io.coil-kt:coil-compose:2.5.0'
     
     // Sherpa ONNX - local AAR from GitHub releases
     implementation(name: 'sherpa-onnx-1.12.25', ext: 'aar')

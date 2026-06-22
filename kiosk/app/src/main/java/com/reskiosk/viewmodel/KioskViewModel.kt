@@ -91,6 +91,10 @@ data class ChatMessage(
     val queryTextOriginal: String? = null,
     /** Accumulated exclude_source_ids at the time this response was generated. */
     val excludeSourceIds: List<Int>? = null,
+    /** Phase 9/10 — image evidence to render with this assistant message (null = text-only). */
+    val imageEvidence: List<com.reskiosk.network.ImageEvidence>? = null,
+    /** Phase 10 — true when the kiosk should lead with the image (image-first). */
+    val imagePrimary: Boolean = false,
 )
 
 // Extension to convert ALL-CAPS STT output to proper sentence case
