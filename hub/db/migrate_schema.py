@@ -142,6 +142,20 @@ def migrate():
                 print(f"[Migration] Added kb_items.{col}")
                 migrated += 1
 
+    # ── image_assets (Phase 9: CLIP embedding columns) ────────────────
+    cols = _get_existing_columns(cursor, "image_assets")
+    if cols:
+        ia_migrations = {
+            "embedding": "ALTER TABLE image_assets ADD COLUMN embedding BLOB",
+            "embedding_model": "ALTER TABLE image_assets ADD COLUMN embedding_model TEXT",
+            "embedding_kb_version": "ALTER TABLE image_assets ADD COLUMN embedding_kb_version INTEGER",
+        }
+        for col, sql in ia_migrations.items():
+            if col not in cols:
+                cursor.execute(sql)
+                print(f"[Migration] Added image_assets.{col}")
+                migrated += 1
+
     # -- network_config -------------------------------------------------------
     cols = _get_existing_columns(cursor, "network_config")
     if cols:

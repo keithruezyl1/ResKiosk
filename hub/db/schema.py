@@ -203,6 +203,10 @@ class ImageAsset(Base):
     kb_version     = Column(Integer, nullable=True)              # KB version at publish/link time
     status         = Column(String, nullable=False, default="pending")  # pending|ready|failed|rejected
     failure_reason = Column(String, nullable=True)              # stable reason code when failed/rejected
+    # Phase 9 / Slice 7C — CLIP image embedding (persisted with model + KB version)
+    embedding            = Column(LargeBinary, nullable=True)   # serialized CLIP image vector
+    embedding_model      = Column(String, nullable=True)        # MODEL_VERSION that produced it
+    embedding_kb_version = Column(Integer, nullable=True)       # KB version at embedding time
     created_at     = Column(DateTime, default=datetime.utcnow)
     updated_at     = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

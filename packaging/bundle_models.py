@@ -16,6 +16,7 @@ os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 HUB_MODELS_DIR = _PROJECT_ROOT / "packaging" / "hub_models"
 NLLB_DIR = HUB_MODELS_DIR / "nllb"
+CLIP_DIR = HUB_MODELS_DIR / "clip"
 OLLAMA_PORTABLE_DIR = _PROJECT_ROOT / "packaging" / "ollama_portable"
 OLLAMA_MODELS_DIR = OLLAMA_PORTABLE_DIR / "models"
 
@@ -98,6 +99,32 @@ def bundle_nllb():
             print("Please allow Hugging Face access and re-run this script,")
             print("or manually download the model and place it under:")
             print(f"  {NLLB_DIR}")
+            raise
+
+
+# -----------------------------------------------------------------------
+# 2b. CLIP ViT-B/32  (image/text embeddings — Phase 9 / Slice 7C)
+# -----------------------------------------------------------------------
+def bundle_clip():
+    from huggingface_hub import snapshot_download
+    print("=" * 60)
+    print("Bundling CLIP ViT-B/32 (image/text embedder)...")
+    CLIP_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        snapshot_download(
+            repo_id="sentence-transformers/clip-ViT-B-32",
+            local_dir=str(CLIP_DIR.resolve()),
+            ignore_patterns=["*.msgpack", "*.h5", "*.ot", "flax_model*", "tf_model*", "rust_model*"],
+        )
+        print("CLIP bundled.\n")
+    except Exception as e:
+        print("ERROR: Failed to download sentence-transformers/clip-ViT-B-32 from Hugging Face.")
+        print(f"Details: {e}")
+        if list(CLIP_DIR.glob("*")):
+            print(f"Existing CLIP files found in {CLIP_DIR}; continuing with them.")
+        else:
+            print(f"No existing CLIP model found. Allow Hugging Face access and re-run, "
+                  f"or manually place the snapshot under: {CLIP_DIR}")
             raise
 
 
@@ -210,6 +237,7 @@ def pull_llm_models(ollama_exe: Path):
 def main():
     bundle_minilm()
     bundle_nllb()
+    bundle_clip()
 
     # Setup and pull Ollama model if possible
     print("=" * 60)
@@ -228,6 +256,7 @@ def main():
     print("Hub model bundle COMPLETE.")
     print(f"  - MiniLM:     {HUB_MODELS_DIR}")
     print(f"  - NLLB-200:   {NLLB_DIR}")
+    print(f"  - CLIP B/32:  {CLIP_DIR}")
     print(f"  - Formatter model: {OLLAMA_FORMAT_MODEL} (Ollama)")
     print(f"  - Rewriter model:  {OLLAMA_REWRITE_MODEL} (Ollama)")
     print("=" * 60)

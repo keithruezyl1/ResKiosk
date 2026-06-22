@@ -584,8 +584,12 @@ async def publish_kb(
         sv = db.query(schema.SystemVersion).first()
         if sv is not None and isinstance(getattr(sv, "kb_version", None), int):
             image_assets.link_assets_to_kb_version(db, sv.kb_version)
+            # Phase 9 (S7C.4): generate CLIP embeddings for ready image assets,
+            # gated to ready + only loading the encoder when there's work to do.
+            from hub.retrieval import image_embedder
+            image_embedder.embed_ready_assets(db, sv.kb_version)
     except Exception:
-        logger.exception("[Publish] asset KB-version linkage failed")
+        logger.exception("[Publish] asset KB-version linkage/embedding failed")
 
     print(f"[Publish] Done. {count} embedded, {errors} errors.")
     return {
